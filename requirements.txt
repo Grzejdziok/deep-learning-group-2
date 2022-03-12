@@ -1,0 +1,2 @@
+pytorch==1.11.0
+torchvision==0.12.0
