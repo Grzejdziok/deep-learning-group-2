@@ -14,8 +14,7 @@ if __name__ == "__main__":
 
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    TOTAL_ITERATIONS = [1000, 5000, 10000, 15000]
-    # TOTAL_ITERATIONS = np.arange(100, 301, 100)
+    TOTAL_ITERATIONS = np.arange(100, 301, 100)
     PM = [0, 3, 7, 12, 15, 18] #P_m's from figure 3 - these are the powers of 0.8 to get to roughly the Pm's for figure 3
     plot_data = np.zeros((len(PM), len(TOTAL_ITERATIONS)))
     PRUNE_RATE = 0.2
@@ -125,7 +124,7 @@ if __name__ == "__main__":
         ax2.plot(TOTAL_ITERATIONS, plot_data[line], label = f"{round(0.8**PM[line]*100,1)}%", color=colours[line])
     for line in range(3):
         ax3.plot(TOTAL_ITERATIONS, plot_data[line], label = f"{round(0.8**PM[line]*100,1)}%", color=colours[line])
-    fig.legend(loc='upper center', frameon=False)
+    plt.legend(loc='upper center', frameon=False)
     plt.show()
 
 
