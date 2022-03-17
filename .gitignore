@@ -1,3 +1,4 @@
 .mnist
 .idea
 __pycache__
+.history
