@@ -8,7 +8,25 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from lenet import Lenet300100
-from collections import OrderedDict
+
+def train_model(total_iterations, iter_train_data_loader, train_data_loader, USE_CUDA, model, criterion, optimizer):
+    iterations_so_far = 0
+    while iterations_so_far < total_iterations:
+        try:
+            batch_input, batch_target = next(iter_train_data_loader)
+            if USE_CUDA:
+                batch_input = batch_input.cuda()
+                batch_target = batch_target.cuda()
+        except StopIteration:
+            iter_train_data_loader = iter(train_data_loader)
+            continue
+        model.train()
+        batch_output_prob = model(batch_input)
+        loss = criterion(batch_output_prob, batch_target)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        iterations_so_far += 1
 
 
 if __name__ == "__main__":
@@ -16,8 +34,8 @@ if __name__ == "__main__":
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
     TOTAL_ITERATIONS = [100, 500, 1000, 5000, 10000]
-    # TOTAL_ITERATIONS = np.arange(100, 3001, 100)
-    PM = [0, 3, 7, 12, 15, 18] #P_m's from figure 3 - these are the powers of 0.8 to get to roughly the Pm's for figure 3
+    # TOTAL_ITERATIONS = np.arange(100, 50001, 100)
+    PM = [0, 3, 7, 12, 15, 18] #P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
     plot_data = np.zeros((len(PM), len(TOTAL_ITERATIONS)))
     PRUNE_RATE = 0.2
     USE_CUDA = torch.cuda.is_available()
@@ -41,60 +59,34 @@ if __name__ == "__main__":
 
 
     # What are iterations exactly? The paper does not say, but it seems that iteration == batch
-    iterations_so_far = 0
     iter_train_data_loader = iter(train_data_loader)
     for total_iterations in TOTAL_ITERATIONS:       #These are the x-axis points where the data is taken    
         weights_original = []                       #Save original weights at the beginning
-        for i in [0,2,4]:
-            weights_original.append(copy.deepcopy(model.layers[i].weight))
-        for pm in range(PM[-1]+1):                               #These are for the colours of different fig 3 lines
-            #Train
-            while iterations_so_far < total_iterations:
-                try:
-                    batch_input, batch_target = next(iter_train_data_loader)
-                    if USE_CUDA:
-                        batch_input = batch_input.cuda()
-                        batch_target = batch_target.cuda()
-                except StopIteration:
-                    iter_train_data_loader = iter(train_data_loader)
-                    continue
-                model.train()
-                batch_output_prob = model(batch_input)
-                loss = criterion(batch_output_prob, batch_target)
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                iterations_so_far += 1
+        if isinstance(model, Lenet300100):  #specific to Lenet
+            for i in [0,2,4]:
+                weights_original.append(copy.deepcopy(model.layers[i].weight))
+        else:
+            raise NotImplementedError
+        for pm in range(PM[-1]+1):                               #Iterate over pruning rates
+            train_model(total_iterations, iter_train_data_loader, train_data_loader, USE_CUDA, model, criterion, optimizer)
             #Prune
-            prune.random_unstructured(model.layers[0], name="weight", amount=PRUNE_RATE)
-            prune.random_unstructured(model.layers[2], name="weight", amount=PRUNE_RATE)
-            prune.random_unstructured(model.layers[4], name="weight", amount=PRUNE_RATE/2) #Last layer at half the rate - page 22
+            if isinstance(model, Lenet300100): #specific to Lenet
+                prune.random_unstructured(model.layers[0], name="weight", amount=PRUNE_RATE)
+                prune.random_unstructured(model.layers[2], name="weight", amount=PRUNE_RATE)
+                prune.random_unstructured(model.layers[4], name="weight", amount=PRUNE_RATE/2) #Last layer at half the rate - page 22
+            else:
+                raise NotImplementedError
             #Update
             mask = list(model.named_buffers())
-            for i in range(3):
-                weights_original[i]=weights_original[i]*mask[i][1]
-                model.layers[2*i].weight = weights_original[i]
-            # print(model.layers[0].weight.count_nonzero())
-
+            if isinstance(model, Lenet300100):  #specific to Lenet
+                for i in range(3):
+                    weights_original[i]=weights_original[i]*mask[i][1]
+                    model.layers[2*i].weight = weights_original[i]
+            else:
+                raise NotImplementedError
             if pm in PM:
                 #Train again
-                iterations_so_far = 0
-                while iterations_so_far < total_iterations:
-                    try:
-                        batch_input, batch_target = next(iter_train_data_loader)
-                        if USE_CUDA:
-                            batch_input = batch_input.cuda()
-                            batch_target = batch_target.cuda()
-                    except StopIteration:
-                        iter_train_data_loader = iter(train_data_loader)
-                        continue
-                    model.train()
-                    batch_output_prob = model(batch_input)
-                    loss = criterion(batch_output_prob, batch_target)
-                    loss.backward()
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    iterations_so_far += 1
+                train_model(total_iterations, iter_train_data_loader, train_data_loader, USE_CUDA, model, criterion, optimizer)
                 # print(model.layers[0].weight.count_nonzero()) # This shows that the number of active connections in the first layer goes down as expected
 
                 #Find accuracy
@@ -134,6 +126,6 @@ if __name__ == "__main__":
         axLine, axLabel = ax.get_legend_handles_labels()
         lines.extend(axLine)
         labels.extend(axLabel)  
-    labels = OrderedDict((x, True) for x in labels).keys()    
-    fig.legend(lines, labels, loc = 'upper center', frameon=False, ncol = len(labels))
+    legend = {label:line for label,line in zip(labels, lines)}
+    fig.legend(list(legend.values()), list(legend.keys()), loc = 'upper center', frameon=False, ncol = len(labels))
     plt.show()    
