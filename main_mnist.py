@@ -1,4 +1,3 @@
-import string
 from typing import List
 import matplotlib
 from matplotlib.pyplot import plot
@@ -13,7 +12,7 @@ import matplotlib.pyplot as plt
 from lenet import Lenet300100
 
 
-def plot_dict(plot_data: dict[string, dict],
+def plot_dict(plot_data: dict[str, dict],
               colors:List[str],
               validation_iterations:np.ndarray,
               ax: matplotlib.axes.Axes):
