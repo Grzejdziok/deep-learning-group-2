@@ -7,6 +7,7 @@ from matplotlib.pyplot import plot
 import torch
 import torch.nn as nn
 import torchvision
+import tqdm
 import torchvision.datasets
 import torch.nn.utils.prune as prune
 import numpy as np
@@ -38,6 +39,7 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
     iter_train_data_loader = iter(train_data_loader)
     total_iterations = max(validate_at)
     accuracies = []
+    progress_bar = tqdm.tqdm(total=total_iterations)
     while iterations_so_far < total_iterations:
         try:
             batch_input, batch_target = next(iter_train_data_loader)
@@ -54,6 +56,7 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
         optimizer.step()
         optimizer.zero_grad()
         iterations_so_far += 1
+        progress_bar.update()
 
         if iterations_so_far in validate_at:
             # Find accuracy
@@ -71,6 +74,7 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
                                  test_batch_target).sum().float().item()
             accuracy = num_hits / len(test_dataset)
             accuracies.append(accuracy)
+    progress_bar.close()
     accuracies = np.asarray(accuracies)
     return accuracies
 
