@@ -1,4 +1,6 @@
+import string
 from typing import List
+import matplotlib
 from matplotlib.pyplot import plot
 import torch
 import torch.nn as nn
@@ -11,16 +13,16 @@ import matplotlib.pyplot as plt
 from lenet import Lenet300100
 
 
-def plot_dict(plot_data: dict,
+def plot_dict(plot_data: dict[string, dict],
               colors:List[str],
-              VALIDATION_ITERATIONS:np.ndarray,
-              ax):
+              validation_iterations:np.ndarray,
+              ax: matplotlib.axes.Axes):
     for label in plot_data.keys():
         for color in colors:
             if plot_data[label]['color']==color:
                 average = np.mean(plot_data[label]['accuracy'], axis=0)
                 errors = np.vstack((np.amax(plot_data[label]['accuracy'], axis = 0)-average, -np.amin(plot_data[label]['accuracy'], axis = 0)+average))
-                ax.errorbar(VALIDATION_ITERATIONS, average, yerr = errors, label=label, color=color)
+                ax.errorbar(validation_iterations, average, yerr = errors, label=label, color=color)
 
 
 def train_model(train_data_loader: torch.utils.data.DataLoader,
@@ -30,7 +32,7 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
                 criterion: nn.Module,
                 optimizer: torch.optim.Optimizer,
                 validate_at: List[int],
-                ) -> List[float]:
+                ) -> np.ndarray:
     iterations_so_far = 0
     iter_train_data_loader = iter(train_data_loader)
     total_iterations = max(validate_at)
@@ -75,8 +77,8 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
 def main_fig3(USE_CUDA: bool,
               LEARNING_RATE: float,
               PRUNE_RATE: float,
-              VALIDATION_ITERATIONS: np.ndarray,
-              PM: List[int],
+              validation_iterations: np.ndarray,
+              pm_list: List[int],
               random_init: bool,
               ):
     model = Lenet300100()
@@ -92,11 +94,11 @@ def main_fig3(USE_CUDA: bool,
     else:
         raise NotImplementedError
 
-    for pm in range(max(PM)+1):  # Iterate over pruning rates
+    for pm in range(max(pm_list)+1):  # Iterate over pruning rates
         print(
             f"Reinit:{random_init}; Training at params ratio: {(1-PRUNE_RATE)**pm:.3f}, active parameters: {sum(model.layers[2*w].weight.count_nonzero().item() for w in range (3))}")
         accuracies = train_model(train_data_loader, test_data_loader,
-                                 USE_CUDA, model, criterion, optimizer, VALIDATION_ITERATIONS)
+                                 USE_CUDA, model, criterion, optimizer, validation_iterations)
         # Prune
         if isinstance(model, Lenet300100):  # specific to Lenet
             prune.random_unstructured(
@@ -115,7 +117,7 @@ def main_fig3(USE_CUDA: bool,
                 for i in range(3):
                     weights_original[i] = weights_original[i]*mask[i][1]
                     model.layers[2*i].weight = weights_original[i]
-                if pm in PM:
+                if pm in pm_list:
                     append_accuracies(
                         plot_data, f"{(1-PRUNE_RATE)**pm*100:.1f}", accuracies)
             else:
@@ -127,7 +129,7 @@ def main_fig3(USE_CUDA: bool,
                         model.layers[2*i].weight.shape, device='cuda').normal_(mean=MU, std=STD)
                     weights_fake = weights_fake*mask[i][1]
                     model.layers[2*i].weight = weights_fake
-                if pm in PM:
+                if pm in pm_list:
                     append_accuracies(
                         plot_data, f"{(1-PRUNE_RATE)**pm*100:.1f}"+" (reinit)", accuracies)
                 # plot_data[f"{(1-PRUNE_RATE)**pm*100:.1f}"+" (reinit)"]["accuracy"].append([accuracies])
@@ -150,10 +152,10 @@ if __name__ == "__main__":
 
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    VALIDATION_ITERATIONS = np.arange(100, 15000, 100, dtype=int)
+    validation_iterations = np.arange(100, 50000, 100, dtype=int)
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
-    PM = [0, 3, 7, 12, 15, 18]
-    # plot_data = np.zeros((len(PM)+2, len(VALIDATION_ITERATIONS))) #+2 for the reinit lines
+    pm_list = [0, 3, 7, 12, 15, 18]
+    # plot_data = np.zeros((len(pm_list)+2, len(validation_iterations))) #+2 for the reinit lines
     plot_data = {}
     PRUNE_RATE = 0.2
     USE_CUDA = torch.cuda.is_available()
@@ -179,9 +181,9 @@ if __name__ == "__main__":
     for i in range(5):
         print(f"---ITERATION: {i+1}---")
         main_fig3(USE_CUDA, LEARNING_RATE, PRUNE_RATE,
-                VALIDATION_ITERATIONS, PM, random_init=False)
+                validation_iterations, pm_list, random_init=False)
         main_fig3(USE_CUDA, LEARNING_RATE, PRUNE_RATE,
-                VALIDATION_ITERATIONS, PM=[3, 7], random_init=True)
+                validation_iterations, pm_list=[3, 7], random_init=True)
 
     # Plot figure 3
     colours = ['blue', 'orange', 'green', 'red',
@@ -192,9 +194,9 @@ if __name__ == "__main__":
 
     fig, ((ax1, ax2, ax3)) = plt.subplots(
         nrows=1, ncols=3, sharex=False, sharey=False)
-    plot_dict(plot_data, ['green', 'orange', 'blue'], VALIDATION_ITERATIONS, ax1)
-    plot_dict(plot_data, ['green', 'red', 'blue', 'purple', 'brown'], VALIDATION_ITERATIONS, ax2)
-    plot_dict(plot_data, ['green', 'orange', 'blue', 'pink', 'cyan'], VALIDATION_ITERATIONS, ax3)
+    plot_dict(plot_data, ['green', 'orange', 'blue'], validation_iterations, ax1)
+    plot_dict(plot_data, ['green', 'red', 'blue', 'purple', 'brown'], validation_iterations, ax2)
+    plot_dict(plot_data, ['green', 'orange', 'blue', 'pink', 'cyan'], validation_iterations, ax3)
 
     lines = []
     labels = []
