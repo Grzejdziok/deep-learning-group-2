@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import matplotlib
 from matplotlib.pyplot import plot
 import torch
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from lenet import Lenet300100
 
 
-def plot_dict(plot_data: dict[str, dict],
+def plot_dict(plot_data: Dict[str, dict],
               colors:List[str],
               validation_iterations:np.ndarray,
               ax: matplotlib.axes.Axes):
