@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 import matplotlib
 from matplotlib.pyplot import plot
 import torch
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from lenet import Lenet300100
 
 
-def plot_dict(plot_data: Dict[str, dict],
+def plot_dict(plot_data: Dict[str, Any],
               colors:List[str],
               validation_iterations:np.ndarray,
               ax: matplotlib.axes.Axes):
@@ -30,7 +30,7 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
                 model: nn.Module,
                 criterion: nn.Module,
                 optimizer: torch.optim.Optimizer,
-                validate_at: List[int],
+                validate_at: np.ndarray,
                 ) -> np.ndarray:
     iterations_so_far = 0
     iter_train_data_loader = iter(train_data_loader)
@@ -79,6 +79,7 @@ def main_fig3(USE_CUDA: bool,
               validation_iterations: np.ndarray,
               pm_list: List[int],
               random_init: bool,
+              plot_data: Dict[str, Any],
               ):
     model = Lenet300100()
     if USE_CUDA:
@@ -136,7 +137,7 @@ def main_fig3(USE_CUDA: bool,
                 raise NotImplementedError
 
 
-def append_accuracies(dict_obj, key, value):
+def append_accuracies(dict_obj: Dict[str, Any], key: str, value: np.ndarray):
     if key in dict_obj:
         try:
             dict_obj[key]['accuracy'] = np.vstack((dict_obj[key]['accuracy'], value))
@@ -180,9 +181,9 @@ if __name__ == "__main__":
     for i in range(5):
         print(f"---ITERATION: {i+1}---")
         main_fig3(USE_CUDA, LEARNING_RATE, PRUNE_RATE,
-                validation_iterations, pm_list, random_init=False)
+                validation_iterations, pm_list, random_init=False, plot_data=plot_data)
         main_fig3(USE_CUDA, LEARNING_RATE, PRUNE_RATE,
-                validation_iterations, pm_list=[3, 7], random_init=True)
+                validation_iterations, pm_list=[3, 7], random_init=True, plot_data=plot_data)
 
     # Plot figure 3
     colours = ['blue', 'orange', 'green', 'red',
