@@ -100,12 +100,12 @@ def main_fig3(USE_CUDA: bool,
                                  USE_CUDA, model, criterion, optimizer, validation_iterations)
         # Prune
         if isinstance(model, Lenet300100):  # specific to Lenet
-            prune.random_unstructured(
+            prune.l1_unstructured(
                 model.layers[0], name="weight", amount=PRUNE_RATE)
-            prune.random_unstructured(
+            prune.l1_unstructured(
                 model.layers[2], name="weight", amount=PRUNE_RATE)
             # Last layer at half the rate - page 22
-            prune.random_unstructured(
+            prune.l1_unstructured(
                 model.layers[4], name="weight", amount=PRUNE_RATE/2)
         else:
             raise NotImplementedError
