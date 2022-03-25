@@ -125,10 +125,8 @@ def main_fig3(USE_CUDA: bool,
         else:
             if isinstance(model, Lenet300100):  # specific to Lenet
                 for i in range(3):
-                    weights_fake = torch.empty(
-                        model.layers[2*i].weight.shape, device='cuda').normal_(mean=MU, std=STD)
-                    weights_fake = weights_fake*mask[i][1]
-                    model.layers[2*i].weight = weights_fake
+                    model.layers[2*i].reset_parameters()
+                    model.layers[2*i] *= mask[i][1]
                 if pm in pm_list:
                     append_accuracies(
                         plot_data, f"{(1-PRUNE_RATE)**pm*100:.1f}"+" (reinit)", accuracies)
