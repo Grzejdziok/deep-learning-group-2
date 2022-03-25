@@ -1,4 +1,7 @@
+import collections
 from typing import List, Dict, Any
+import copy
+import json
 import matplotlib
 from matplotlib.pyplot import plot
 import torch
@@ -7,7 +10,6 @@ import torchvision
 import torchvision.datasets
 import torch.nn.utils.prune as prune
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
 from lenet import Lenet300100
 
@@ -73,89 +75,93 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
     return accuracies
 
 
-def main_fig3(USE_CUDA: bool,
-              LEARNING_RATE: float,
-              PRUNE_RATE: float,
-              validation_iterations: np.ndarray,
-              pm_list: List[int],
-              random_init: bool,
-              plot_data: Dict[str, Any],
-              ):
-    model = Lenet300100()
-    if USE_CUDA:
-        model.cuda()
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
-
-    weights_original = []  # Save original weights at the beginning
-    if isinstance(model, Lenet300100):  # specific to Lenet
-        for i in [0, 2, 4]:
-            weights_original.append(copy.deepcopy(model.layers[i].weight))
+def prune_model(model: nn.Module, prune_ratio_hidden: float, prune_ratio_output: float) -> nn.Module:
+    if isinstance(model, Lenet300100):
+        prune.l1_unstructured(model.layers[0], name="weight", amount=prune_ratio_hidden)
+        prune.l1_unstructured(model.layers[2], name="weight", amount=prune_ratio_hidden)
+        # Last layer at half the rate - page 22
+        prune.l1_unstructured(model.layers[4], name="weight", amount=prune_ratio_output)
     else:
-        raise NotImplementedError
+        raise NotImplementedError()
+    return model
 
-    for pm in range(max(pm_list)+1):  # Iterate over pruning rates
-        print(
-            f"Reinit:{random_init}; Training at params ratio: {(1-PRUNE_RATE)**pm:.3f}, active parameters: {sum(model.layers[2*w].weight.count_nonzero().item() for w in range (3))}")
-        accuracies = train_model(train_data_loader, test_data_loader,
-                                 USE_CUDA, model, criterion, optimizer, validation_iterations)
-        # Prune
-        if isinstance(model, Lenet300100):  # specific to Lenet
-            prune.l1_unstructured(
-                model.layers[0], name="weight", amount=PRUNE_RATE)
-            prune.l1_unstructured(
-                model.layers[2], name="weight", amount=PRUNE_RATE)
-            # Last layer at half the rate - page 22
-            prune.l1_unstructured(
-                model.layers[4], name="weight", amount=PRUNE_RATE/2)
-        else:
-            raise NotImplementedError
-        # Update
-        mask = list(model.named_buffers())
-        if not random_init:
-            if isinstance(model, Lenet300100):  # specific to Lenet
-                for i in range(3):
-                    weights_original[i] = weights_original[i]*mask[i][1]
-                    model.layers[2*i].weight = weights_original[i]
-                if pm in pm_list:
-                    append_accuracies(
-                        plot_data, f"{(1-PRUNE_RATE)**pm*100:.1f}", accuracies)
+
+def load_original_weights(model: nn.Module, model_original: nn.Module) -> nn.Module:
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+            if prune.is_pruned(module):
+                mask = module.weight_mask
+                prune.remove(module, 'weight')
+                module.weight.data = model_original.get_submodule(name).weight.data.clone()
+                module.bias.data = model_original.get_submodule(name).bias.data.clone()
+                prune.custom_from_mask(module, 'weight', mask)
             else:
-                raise NotImplementedError
-        else:
-            if isinstance(model, Lenet300100):  # specific to Lenet
-                for i in range(3):
-                    model.layers[2*i].reset_parameters()
-                    model.layers[2*i] *= mask[i][1]
-                if pm in pm_list:
-                    append_accuracies(
-                        plot_data, f"{(1-PRUNE_RATE)**pm*100:.1f}"+" (reinit)", accuracies)
-                # plot_data[f"{(1-PRUNE_RATE)**pm*100:.1f}"+" (reinit)"]["accuracy"].append([accuracies])
+                module.weight.data = model_original.get_submodule(name).weight.data.clone()
+                module.bias.data = model_original.get_submodule(name).bias.data.clone()
+    return model
+
+
+def random_reinit(model: nn.Module) -> nn.Module:
+    for module in model.modules():
+        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+            if prune.is_pruned(module):
+                mask = module.weight_mask
+                prune.remove(module, 'weight')
+                module.reset_parameters()
+                prune.custom_from_mask(module, 'weight', mask)
             else:
-                raise NotImplementedError
+                module.reset_parameters()
+    return model
 
 
-def append_accuracies(dict_obj: Dict[str, Any], key: str, value: np.ndarray):
-    if key in dict_obj:
-        try:
-            dict_obj[key]['accuracy'] = np.vstack((dict_obj[key]['accuracy'], value))
-        except:
-            raise "accuracy subkey not in dictionary"
-    else:
-        dict_obj[key] = {}
-        dict_obj[key]['accuracy'] = value
+def run_iterative_pruning(
+        num_executions: int,
+        num_prunings: int,
+        validation_iterations: np.ndarray,
+        train_data_loader: torch.utils.data.DataLoader,
+        test_data_loader: torch.utils.data.DataLoader,
+        prune_rate: float,
+        random_init: bool,
+) -> np.ndarray:
+    accuracies_array = np.zeros((num_prunings+1, num_executions, validation_iterations.shape[0]))
+    for i in range(num_executions):
+        print(f"---ITERATION: {i + 1}, RANDOM_INIT={random_init}---")
+        model = Lenet300100()
+        if USE_CUDA:
+            model.cuda()
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
+
+        model_original = copy.deepcopy(model)  # Save original weights at the beginning
+        for pm in range(num_prunings+1):
+            print(f"Training at params ratio: {(1 - PRUNE_RATE) ** pm:.3f}, "
+                  f"active parameters: {sum(model.layers[2 * w].weight.count_nonzero().item() for w in range(3))}")
+            accuracies = train_model(train_data_loader, test_data_loader, USE_CUDA, model, criterion, optimizer,
+                                     validation_iterations)
+            model = prune_model(model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
+            if not random_init:
+                model = load_original_weights(model=model, model_original=model_original)
+            else:
+                model = random_reinit(model)
+            accuracies_array[pm, i, :] = accuracies
+            np.save(f"data{'_random_init' if random_init else ''}.npy", accuracies_array)
+    return accuracies_array
 
 
 if __name__ == "__main__":
 
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    validation_iterations = np.arange(100, 50000, 100, dtype=int)
+    VALIDATION_ITERATIONS = np.arange(200, 50001, 200, dtype=int)
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
-    pm_list = [0, 3, 7, 12, 15, 18]
+    PM_LIST = [0, 3, 7, 12, 15, 18]
+    PM_LIST_REINIT = [0, 3, 7]
+    NUM_PRUNINGS = max(PM_LIST)
+    NUM_PRUNINGS_REINIT = max(PM_LIST_REINIT)
     # plot_data = np.zeros((len(pm_list)+2, len(validation_iterations))) #+2 for the reinit lines
-    plot_data = {}
+    NUM_EXECUTIONS = 5
     PRUNE_RATE = 0.2
+
     USE_CUDA = torch.cuda.is_available()
     # seemingly the normalization parameters according to LeCun (1998)
     MU = 0.1/1.275
@@ -176,25 +182,42 @@ if __name__ == "__main__":
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    for i in range(5):
-        print(f"---ITERATION: {i+1}---")
-        main_fig3(USE_CUDA, LEARNING_RATE, PRUNE_RATE,
-                validation_iterations, pm_list, random_init=False, plot_data=plot_data)
-        main_fig3(USE_CUDA, LEARNING_RATE, PRUNE_RATE,
-                validation_iterations, pm_list=[3, 7], random_init=True, plot_data=plot_data)
+    accuracies_array = run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+                                             num_prunings=NUM_PRUNINGS,
+                                             random_init=False,
+                                             prune_rate=PRUNE_RATE,
+                                             train_data_loader=train_data_loader,
+                                             test_data_loader=test_data_loader,
+                                             validation_iterations=VALIDATION_ITERATIONS,
+                                             )
+    accuracies_array_reinit = run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+                                                    num_prunings=NUM_PRUNINGS_REINIT,
+                                                    random_init=True,
+                                                    prune_rate=PRUNE_RATE,
+                                                    train_data_loader=train_data_loader,
+                                                    test_data_loader=test_data_loader,
+                                                    validation_iterations=VALIDATION_ITERATIONS)
 
     # Plot figure 3
-    colours = ['blue', 'orange', 'green', 'red',
-               'purple', 'brown', 'pink', 'cyan']
-    for i, key in enumerate(plot_data):
-        plot_data[key]['color'] = colours[i]
+    plot_data = {}
+    colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown']
+    for pm, color in zip(PM_LIST, colors):
+        key = f"{(1 - PRUNE_RATE) ** pm * 100:.1f}"
+        plot_data[key] = {}
+        plot_data[key]["accuracy"] = accuracies_array[pm]
+        plot_data[key]['color'] = color
 
+    colors_reinit = ['pink', 'cyan']
+    for pm, color in zip(PM_LIST_REINIT[1:], colors_reinit):
+        key = f"{(1 - PRUNE_RATE) ** pm * 100:.1f} (reinit)"
+        plot_data[key] = {}
+        plot_data[key]["accuracy"] = accuracies_array_reinit[pm]
+        plot_data[key]['color'] = color
 
-    fig, ((ax1, ax2, ax3)) = plt.subplots(
-        nrows=1, ncols=3, sharex=False, sharey=False)
-    plot_dict(plot_data, ['green', 'orange', 'blue'], validation_iterations, ax1)
-    plot_dict(plot_data, ['green', 'red', 'blue', 'purple', 'brown'], validation_iterations, ax2)
-    plot_dict(plot_data, ['green', 'orange', 'blue', 'pink', 'cyan'], validation_iterations, ax3)
+    fig, ((ax1, ax2, ax3)) = plt.subplots(nrows=1, ncols=3, sharex=False, sharey=False)
+    plot_dict(plot_data, ['green', 'orange', 'blue'], VALIDATION_ITERATIONS, ax1)
+    plot_dict(plot_data, ['green', 'red', 'blue', 'purple', 'brown'], VALIDATION_ITERATIONS, ax2)
+    plot_dict(plot_data, ['green', 'orange', 'blue', 'pink', 'cyan'], VALIDATION_ITERATIONS, ax3)
 
     lines = []
     labels = []
