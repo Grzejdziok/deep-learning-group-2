@@ -226,6 +226,10 @@ if __name__ == "__main__":
     lines = []
     labels = []
     for ax in fig.axes:
+        ax.set_xlim(0, 17500)
+        ax.set_ylim(0.94, 0.99)
+        ax.set_xticks([0, 5000, 10000, 15000])
+        ax.grid()
         axLine, axLabel = ax.get_legend_handles_labels()
         lines.extend(axLine)
         labels.extend(axLabel)
