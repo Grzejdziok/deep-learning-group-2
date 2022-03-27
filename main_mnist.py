@@ -1,4 +1,5 @@
 import collections
+from os import path
 from typing import List, Dict, Any
 import copy
 import json
@@ -16,15 +17,17 @@ from lenet import Lenet300100
 
 
 def plot_dict(plot_data: Dict[str, Any],
-              colors:List[str],
-              validation_iterations:np.ndarray,
+              colors: List[str],
+              validation_iterations: np.ndarray,
               ax: matplotlib.axes.Axes):
     for label in plot_data.keys():
         for color in colors:
-            if plot_data[label]['color']==color:
+            if plot_data[label]['color'] == color:
                 average = np.mean(plot_data[label]['accuracy'], axis=0)
-                errors = np.vstack((np.amax(plot_data[label]['accuracy'], axis = 0)-average, -np.amin(plot_data[label]['accuracy'], axis = 0)+average))
-                ax.errorbar(validation_iterations, average, yerr = errors, label=label, color=color)
+                errors = np.vstack((np.amax(plot_data[label]['accuracy'], axis=0)-average, -np.amin(
+                    plot_data[label]['accuracy'], axis=0)+average))
+                ax.errorbar(validation_iterations, average,
+                            yerr=errors, label=label, color=color)
 
 
 def train_model(train_data_loader: torch.utils.data.DataLoader,
@@ -34,11 +37,12 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
                 criterion: nn.Module,
                 optimizer: torch.optim.Optimizer,
                 validate_at: np.ndarray,
-                ) -> np.ndarray:
+                ) -> Any:
     iterations_so_far = 0
     iter_train_data_loader = iter(train_data_loader)
     total_iterations = max(validate_at)
     accuracies = []
+    losses = []
     progress_bar = tqdm.tqdm(total=total_iterations)
     while iterations_so_far < total_iterations:
         try:
@@ -59,8 +63,9 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
         progress_bar.update()
 
         if iterations_so_far in validate_at:
-            # Find accuracy
+            # Find accuracy and loss
             model.eval()
+            running_loss = 0.
             num_hits = 0.
             for test_batch_input, test_batch_target in test_data_loader:
                 if USE_CUDA:
@@ -72,19 +77,27 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
                         test_batch_output_prob, dim=1)
                     num_hits += (test_batch_output ==
                                  test_batch_target).sum().float().item()
-            accuracy = num_hits / len(test_dataset)
-            accuracies.append(accuracy)
+                    loss = criterion(test_batch_output_prob, test_batch_target)
+                running_loss += loss.item() * test_batch_input.size(0)
+            epoch_accuracy = num_hits / len(test_dataset)
+            accuracies.append(epoch_accuracy)
+            epoch_loss = running_loss / len(test_dataset)
+            losses.append(epoch_loss)
     progress_bar.close()
     accuracies = np.asarray(accuracies)
-    return accuracies
+    losses = np.asarray(losses)
+    return accuracies, losses
 
 
 def prune_model(model: nn.Module, prune_ratio_hidden: float, prune_ratio_output: float) -> nn.Module:
     if isinstance(model, Lenet300100):
-        prune.l1_unstructured(model.layers[0], name="weight", amount=prune_ratio_hidden)
-        prune.l1_unstructured(model.layers[2], name="weight", amount=prune_ratio_hidden)
+        prune.l1_unstructured(
+            model.layers[0], name="weight", amount=prune_ratio_hidden)
+        prune.l1_unstructured(
+            model.layers[2], name="weight", amount=prune_ratio_hidden)
         # Last layer at half the rate - page 22
-        prune.l1_unstructured(model.layers[4], name="weight", amount=prune_ratio_output)
+        prune.l1_unstructured(
+            model.layers[4], name="weight", amount=prune_ratio_output)
     else:
         raise NotImplementedError()
     return model
@@ -96,12 +109,16 @@ def load_original_weights(model: nn.Module, model_original: nn.Module) -> nn.Mod
             if prune.is_pruned(module):
                 mask = module.weight_mask
                 prune.remove(module, 'weight')
-                module.weight.data = model_original.get_submodule(name).weight.data.clone()
-                module.bias.data = model_original.get_submodule(name).bias.data.clone()
+                module.weight.data = model_original.get_submodule(
+                    name).weight.data.clone()
+                module.bias.data = model_original.get_submodule(
+                    name).bias.data.clone()
                 prune.custom_from_mask(module, 'weight', mask)
             else:
-                module.weight.data = model_original.get_submodule(name).weight.data.clone()
-                module.bias.data = model_original.get_submodule(name).bias.data.clone()
+                module.weight.data = model_original.get_submodule(
+                    name).weight.data.clone()
+                module.bias.data = model_original.get_submodule(
+                    name).bias.data.clone()
     return model
 
 
@@ -129,7 +146,10 @@ def run_iterative_pruning(
         prune_rate: float,
         random_init: bool,
 ) -> np.ndarray:
-    accuracies_array = np.zeros((num_prunings+1, num_executions, validation_iterations.shape[0]))
+    accuracies_array = np.zeros(
+        (num_prunings+1, num_executions, validation_iterations.shape[0]))
+    losses_array = np.zeros(
+        (num_prunings+1, num_executions, validation_iterations.shape[0]))
     for i in range(num_executions):
         print(f"---ITERATION: {i + 1}, RANDOM_INIT={random_init}---")
         model = Lenet300100()
@@ -137,36 +157,48 @@ def run_iterative_pruning(
         if USE_CUDA:
             model.cuda()
         criterion = nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
+        optimizer = torch.optim.Adam(
+            params=model.parameters(), lr=LEARNING_RATE)
 
-        model_original = copy.deepcopy(model)  # Save original weights at the beginning
+        # Save original weights at the beginning
+        model_original = copy.deepcopy(model)
         for pm in range(num_prunings+1):
             print(f"Training at params ratio: {(1 - PRUNE_RATE) ** pm:.3f}, "
                   f"active parameters: {sum(model.layers[2 * w].weight.count_nonzero().item() for w in range(3))}")
-            accuracies = train_model(train_data_loader, test_data_loader, USE_CUDA, model, criterion, optimizer,
+            accuracies, losses = train_model(train_data_loader, test_data_loader, USE_CUDA, model, criterion, optimizer,
                                      validation_iterations)
-            model = prune_model(model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
+            model = prune_model(
+                model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
             if not random_init:
-                model = load_original_weights(model=model, model_original=model_original)
+                model = load_original_weights(
+                    model=model, model_original=model_original)
             else:
                 model = random_reinit(model)
             accuracies_array[pm, i, :] = accuracies
-            np.save(f"data{'_random_init' if random_init else ''}.npy", accuracies_array)
-    return accuracies_array
+            losses_array[pm, i, :] = losses
+            np.save(
+                f"accuracies{'_random_init' if random_init else ''}.npy", accuracies_array)
+            np.save(
+                f"losses{'_random_init' if random_init else ''}.npy", accuracies_array)
+    return accuracies_array, losses_array
 
 
 if __name__ == "__main__":
 
+    USE_CACHED=True
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    VALIDATION_ITERATIONS = np.arange(200, 50001, 200, dtype=int)
+    VALIDATION_ITERATIONS = np.arange(500, 3000, 500, dtype=int)
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
     PM_LIST = [0, 3, 7, 12, 15, 18]
+    PM_LIST = [0]
+
     PM_LIST_REINIT = [0, 3, 7]
+    PM_LIST_REINIT = [0]
+
     NUM_PRUNINGS = max(PM_LIST)
     NUM_PRUNINGS_REINIT = max(PM_LIST_REINIT)
-    # plot_data = np.zeros((len(pm_list)+2, len(validation_iterations))) #+2 for the reinit lines
-    NUM_EXECUTIONS = 5
+    NUM_EXECUTIONS = 2
     PRUNE_RATE = 0.2
 
     USE_CUDA = torch.cuda.is_available()
@@ -191,21 +223,86 @@ if __name__ == "__main__":
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    accuracies_array = run_iterative_pruning(num_executions=NUM_EXECUTIONS,
-                                             num_prunings=NUM_PRUNINGS,
-                                             random_init=False,
-                                             prune_rate=PRUNE_RATE,
-                                             train_data_loader=train_data_loader,
-                                             test_data_loader=test_data_loader,
-                                             validation_iterations=VALIDATION_ITERATIONS,
-                                             )
-    accuracies_array_reinit = run_iterative_pruning(num_executions=NUM_EXECUTIONS,
-                                                    num_prunings=NUM_PRUNINGS_REINIT,
-                                                    random_init=True,
-                                                    prune_rate=PRUNE_RATE,
-                                                    train_data_loader=train_data_loader,
-                                                    test_data_loader=test_data_loader,
-                                                    validation_iterations=VALIDATION_ITERATIONS)
+    files = ["accuracies.npy", "accuracies_random_init.npy", "losses.npy", "losses_random_init.npy"]
+    if USE_CACHED and [path.exists(i) for i in files]:
+        accuracies_array, accuracies_array_reinit, losses_array, losses_array_reinit = [np.load(file) for file in files]
+        print("Loaded cached data.")
+
+    else:
+        accuracies_array, losses_array = run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+                                                num_prunings=NUM_PRUNINGS,
+                                                random_init=False,
+                                                prune_rate=PRUNE_RATE,
+                                                train_data_loader=train_data_loader,
+                                                test_data_loader=test_data_loader,
+                                                validation_iterations=VALIDATION_ITERATIONS,
+                                                )
+        accuracies_array_reinit, losses_array_reinit = run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+                                                        num_prunings=NUM_PRUNINGS_REINIT,
+                                                        random_init=True,
+                                                        prune_rate=PRUNE_RATE,
+                                                        train_data_loader=train_data_loader,
+                                                        test_data_loader=test_data_loader,
+                                                        validation_iterations=VALIDATION_ITERATIONS)
+
+
+    #Plot figure 1
+
+    #Iterations
+    prune_rates = (1 - PRUNE_RATE) ** np.arange(0, max(PM_LIST)+1)*100
+    prune_rates_random = (1 - PRUNE_RATE) ** np.arange(0, max(PM_LIST_REINIT)+1)*100
+    es_index = np.argmax(np.diff(losses_array)>0, axis=2)
+    es_iter = VALIDATION_ITERATIONS[es_index]
+    average_es = np.mean(es_iter, axis=1)
+    errors_es = np.vstack((np.amax(es_iter, axis=1)-average_es, - np.amin(
+                    es_iter, axis=1)+average_es))
+
+    es_index_random = np.argmax(np.diff(losses_array_reinit)>0, axis=2)
+    es_iter_random = VALIDATION_ITERATIONS[es_index_random]
+    average_es_random = np.mean(es_iter_random, axis=1)
+    errors_es_random = np.vstack((np.amax(es_iter_random, axis=1)-average_es_random, - np.amin(
+                    es_iter_random, axis=1)+average_es_random))
+
+    #Accuracies
+    accuracies_es = np.take(accuracies_array, es_index)
+    accuracies_es_random = np.take(accuracies_array_reinit, es_index_random)
+    average_es_accuracy = np.mean(accuracies_es, axis=1)
+    average_es_accuracy_random = np.mean(accuracies_es_random, axis=1)
+    errors_accuracy_es = np.vstack((np.amax(accuracies_es, axis=1)-average_es_accuracy, - np.amin(
+                    accuracies_es, axis=1)+average_es_accuracy))
+    errors_accuracy_es_random = np.vstack((np.amax(accuracies_es_random, axis=1)-average_es_accuracy_random, - np.amin(
+                    accuracies_es_random, axis=1)+average_es_accuracy_random))
+
+
+    fig, ((ax1, ax2)) = plt.subplots(
+        nrows=1, ncols=2, sharex=False, sharey=False)
+    ax1.errorbar(prune_rates, average_es, yerr=errors_es, color='red', label='Lenet')
+    ax1.errorbar(prune_rates_random, average_es_random, yerr=errors_es_random, color='red', label ='random', ls='--')
+    ax1.set_xscale('log')
+    ax1.set_xlim(130, 0.1)
+    ax1.set_ylim(0, np.max(VALIDATION_ITERATIONS))
+    ax1.set_xlabel("Percent of weights remaining")
+    ax1.set_ylabel("Early-Stop Iteration (Val.)")
+    # ax.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
+    ax1.grid()
+    # ax1.ticklabel_format(style='plain')
+
+    # ax1.xaxis.get_major_formatter().set_scientific(False)
+
+    ax2.errorbar(prune_rates, average_es_accuracy, yerr=errors_accuracy_es, color='red', label='Lenet')
+    ax2.errorbar(prune_rates_random, average_es_accuracy_random, yerr=errors_accuracy_es_random, color='red', label ='random', ls='--')
+    ax2.set_xscale('log')
+    ax2.set_xlim(130, 0.1)
+    ax2.set_ylim(0.9, 1)
+    ax2.set_xlabel("Percent of weights remaining")
+    ax2.set_ylabel("Accuracy at Early-Stop (Test)")
+    # ax2.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
+    ax2.grid()
+    # ax2.xaxis.get_major_formatter().set_scientific(False)
+    # ax2.ticklabel_format(style='plain')
+    plt.show()
+    
+    #I can't get rid of scientific notation
 
     # Plot figure 3
     plot_data = {}
@@ -223,10 +320,14 @@ if __name__ == "__main__":
         plot_data[key]["accuracy"] = accuracies_array_reinit[pm]
         plot_data[key]['color'] = color
 
-    fig, ((ax1, ax2, ax3)) = plt.subplots(nrows=1, ncols=3, sharex=False, sharey=False)
-    plot_dict(plot_data, ['green', 'orange', 'blue'], VALIDATION_ITERATIONS, ax1)
-    plot_dict(plot_data, ['green', 'red', 'blue', 'purple', 'brown'], VALIDATION_ITERATIONS, ax2)
-    plot_dict(plot_data, ['green', 'orange', 'blue', 'pink', 'cyan'], VALIDATION_ITERATIONS, ax3)
+    fig, ((ax1, ax2, ax3)) = plt.subplots(
+        nrows=1, ncols=3, sharex=False, sharey=False)
+    plot_dict(plot_data, ['green', 'orange', 'blue'],
+              VALIDATION_ITERATIONS, ax1)
+    plot_dict(plot_data, ['green', 'red', 'blue',
+              'purple', 'brown'], VALIDATION_ITERATIONS, ax2)
+    plot_dict(plot_data, ['green', 'orange', 'blue',
+              'pink', 'cyan'], VALIDATION_ITERATIONS, ax3)
 
     lines = []
     labels = []
