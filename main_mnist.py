@@ -185,20 +185,17 @@ def run_iterative_pruning(
 
 if __name__ == "__main__":
 
-    USE_CACHED=True
+    USE_CACHED=False
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    VALIDATION_ITERATIONS = np.arange(500, 3000, 500, dtype=int)
+    VALIDATION_ITERATIONS = np.arange(200, 50000, 200, dtype=int)
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
     PM_LIST = [0, 3, 7, 12, 15, 18]
-    PM_LIST = [0]
-
-    PM_LIST_REINIT = [0, 3, 7]
-    PM_LIST_REINIT = [0]
+    PM_LIST_REINIT = [0, 3, 7, 12, 15, 18]
 
     NUM_PRUNINGS = max(PM_LIST)
     NUM_PRUNINGS_REINIT = max(PM_LIST_REINIT)
-    NUM_EXECUTIONS = 2
+    NUM_EXECUTIONS = 5
     PRUNE_RATE = 0.2
 
     USE_CUDA = torch.cuda.is_available()
@@ -254,12 +251,16 @@ if __name__ == "__main__":
     es_index = np.argmax(np.diff(losses_array)>0, axis=2)
     es_iter = VALIDATION_ITERATIONS[es_index]
     average_es = np.mean(es_iter, axis=1)
+    es_notfound = np.where(average_es==VALIDATION_ITERATIONS[0])
+    average_es[es_notfound] = VALIDATION_ITERATIONS[-1]
     errors_es = np.vstack((np.amax(es_iter, axis=1)-average_es, - np.amin(
                     es_iter, axis=1)+average_es))
 
     es_index_random = np.argmax(np.diff(losses_array_reinit)>0, axis=2)
     es_iter_random = VALIDATION_ITERATIONS[es_index_random]
     average_es_random = np.mean(es_iter_random, axis=1)
+    es_notfound_random = np.where(average_es_random==VALIDATION_ITERATIONS[0])
+    average_es_random[es_notfound_random] = VALIDATION_ITERATIONS[-1]
     errors_es_random = np.vstack((np.amax(es_iter_random, axis=1)-average_es_random, - np.amin(
                     es_iter_random, axis=1)+average_es_random))
 
