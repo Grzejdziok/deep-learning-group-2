@@ -9,3 +9,4 @@ accuracies_random_init.npy
 accuracies.npy
 losses_random_init.npy
 losses.npy
+plotter.py

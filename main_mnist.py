@@ -179,7 +179,7 @@ def run_iterative_pruning(
             np.save(
                 f"accuracies{'_random_init' if random_init else ''}.npy", accuracies_array)
             np.save(
-                f"losses{'_random_init' if random_init else ''}.npy", accuracies_array)
+                f"losses{'_random_init' if random_init else ''}.npy", losses_array)
     return accuracies_array, losses_array
 
 
