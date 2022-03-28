@@ -1,6 +1,6 @@
 import collections
 from os import path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import copy
 import json
 import matplotlib
@@ -37,7 +37,7 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
                 criterion: nn.Module,
                 optimizer: torch.optim.Optimizer,
                 validate_at: np.ndarray,
-                ) -> Any:
+                ) -> Tuple[np.ndarray, np.ndarray]:
     iterations_so_far = 0
     iter_train_data_loader = iter(train_data_loader)
     total_iterations = max(validate_at)
@@ -188,7 +188,7 @@ if __name__ == "__main__":
     USE_CACHED=False
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    VALIDATION_ITERATIONS = np.arange(200, 50000, 200, dtype=int)
+    VALIDATION_ITERATIONS = np.arange(200, 50001, 200, dtype=int)
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
     PM_LIST = [0, 3, 7, 12, 15, 18]
     PM_LIST_REINIT = [0, 3, 7, 12, 15, 18]
