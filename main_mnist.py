@@ -111,10 +111,12 @@ def random_reinit(model: nn.Module) -> nn.Module:
             if prune.is_pruned(module):
                 mask = module.weight_mask
                 prune.remove(module, 'weight')
-                module.reset_parameters()
+                nn.init.xavier_normal_(module.weight)
+                nn.init.zeros_(module.bias)
                 prune.custom_from_mask(module, 'weight', mask)
             else:
-                module.reset_parameters()
+                nn.init.xavier_normal_(module.weight)
+                nn.init.zeros_(module.bias)
     return model
 
 
@@ -131,6 +133,7 @@ def run_iterative_pruning(
     for i in range(num_executions):
         print(f"---ITERATION: {i + 1}, RANDOM_INIT={random_init}---")
         model = Lenet300100()
+        model = random_reinit(model)
         if USE_CUDA:
             model.cuda()
         criterion = nn.CrossEntropyLoss()
