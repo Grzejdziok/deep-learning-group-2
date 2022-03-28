@@ -14,9 +14,9 @@ class Lenet300100(nn.Module):
 
         self.layers = nn.Sequential(
             nn.Linear(in_features=28*28, out_features=300, bias=True),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(in_features=300, out_features=100, bias=True),
-            nn.Sigmoid(),
+            nn.ReLU(),
             nn.Linear(in_features=100, out_features=10, bias=True)
         )
 
