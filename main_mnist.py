@@ -179,10 +179,12 @@ if __name__ == "__main__":
         torchvision.transforms.Normalize(mean=MU, std=STD),
         torchvision.transforms.Lambda(lambda tensor: tensor.reshape(-1)),
     ])
-    train_dataset = torchvision.datasets.MNIST(
-        root="./.mnist", transform=transform, download=True, train=True)
+    train_dataset, val_dataset = torch.utils.data.random_split(torchvision.datasets.MNIST(
+        root="./.mnist", transform=transform, download=True, train=True), (55000, 5000))
     train_data_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_data_loader = torch.utils.data.DataLoader(
+        val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     test_dataset = torchvision.datasets.MNIST(
         root="./.mnist", transform=transform, download=True, train=False)
