@@ -241,9 +241,8 @@ if __name__ == "__main__":
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
     VALIDATION_ITERATIONS = np.arange(100, 50001, 100, dtype=int)
-
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
-    PM_LIST = [0, 3, 7, 12, 15, 18]
+    PM_LIST = [0, 3, 7, 12, 15, 18, 28]
     PM_LIST_REINIT = [0, 3, 7]
 
     NUM_PRUNINGS = max(PM_LIST)
