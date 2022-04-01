@@ -2,7 +2,7 @@ import argparse
 import json
 from typing import List, Dict, Any, Tuple
 import copy
-import matplotlib
+import matplotlib.axes
 import torch
 import torch.nn as nn
 import tqdm
@@ -247,7 +247,7 @@ if __name__ == "__main__":
 
     NUM_PRUNINGS = max(PM_LIST)
     NUM_PRUNINGS_REINIT = max(PM_LIST_REINIT)
-    NUM_EXECUTIONS = 2
+    NUM_EXECUTIONS = 5
     PRUNE_RATE = 0.2
 
     USE_CUDA = torch.cuda.is_available()

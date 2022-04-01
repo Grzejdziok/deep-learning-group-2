@@ -1,20 +1,8 @@
-import collections
-import json
-from os import path
 from typing import List, Dict, Any
-import copy
 import json
 import matplotlib
-from matplotlib.pyplot import axline, plot
-import torch
-import torch.nn as nn
-import torchvision
-import tqdm
-import torchvision.datasets
-import torch.nn.utils.prune as prune
 import numpy as np
 import matplotlib.pyplot as plt
-from lenet import Lenet300100
 
 
 def plot_dict(plot_data: Dict[str, Any],
