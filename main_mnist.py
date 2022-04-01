@@ -176,7 +176,8 @@ def run_iterative_pruning(
         test_data_loader: torch.utils.data.DataLoader,
         validation_iterations: np.ndarray,
         l1: bool,
-        pm_list: List[int]
+        pm_list: List[int],
+        file_name: str
 ) -> np.ndarray:
     accuracies_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
@@ -232,7 +233,7 @@ def run_iterative_pruning(
                            "accuracies": accuracies_array.tolist(),
                            "losses": losses_array.tolist()
                            }
-            with open(f"data{'_reinit' if random_init else ''}{'_random' if not l1 else ''}.json", 'w') as file:
+            with open(file_name, 'w') as file:
                 json.dump(export_dict, file)
     return
 >>>>>>> Final: figures 1 and 3
@@ -421,16 +422,19 @@ if __name__ == "__main__":
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=True,
-                          pm_list=PM_LIST)
+                          pm_list=PM_LIST,
+                          file_name='data.json')
     run_iterative_pruning(num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS,
-                          random_init=False,
+                          random_init=True,
                           prune_rate=PRUNE_RATE,
                           train_data_loader=train_data_loader,
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=False,
-                          pm_list=PM_LIST)
+                          pm_list=PM_LIST,
+                          file_name='data_random.json')
+
     run_iterative_pruning(num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS_REINIT,
                           random_init=True,
@@ -439,5 +443,10 @@ if __name__ == "__main__":
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=True,
+<<<<<<< HEAD
                           pm_list=PM_LIST_REINIT)
 >>>>>>> Final: figures 1 and 3
+=======
+                          pm_list=PM_LIST_REINIT,
+                          file_name='data_reinit.json')
+>>>>>>> Implemented changes
