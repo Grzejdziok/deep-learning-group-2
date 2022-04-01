@@ -2,11 +2,7 @@
 .idea
 __pycache__
 .history
-Figure_3-reproduced.png
-data_random_init.npy
-data.npy
-accuracies_random_init.npy
+losses.npy
 accuracies.npy
 losses_random_init.npy
-losses.npy
-plotter.py
+
