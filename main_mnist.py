@@ -1,20 +1,13 @@
-import collections
-import json
-from os import path
 from typing import List, Dict, Any, Tuple
 import copy
 import json
-from isort import file
 import matplotlib
-from matplotlib.pyplot import plot
 import torch
 import torch.nn as nn
-import torchvision
 import tqdm
 import torchvision.datasets
 import torch.nn.utils.prune as prune
 import numpy as np
-import matplotlib.pyplot as plt
 from lenet import Lenet300100
 
 
@@ -164,7 +157,7 @@ def run_iterative_pruning(
         l1: bool,
         pm_list: List[int],
         file_name: str
-) -> np.ndarray:
+):
     accuracies_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
     losses_array = np.zeros(
@@ -208,7 +201,6 @@ def run_iterative_pruning(
                            }
             with open(f"{file_name}.json", 'w') as file:
                 json.dump(export_dict, file)
-    return
 
 
 if __name__ == "__main__":
@@ -228,9 +220,10 @@ if __name__ == "__main__":
     PRUNE_RATE = 0.2
 
     USE_CUDA = torch.cuda.is_available()
-    # seemingly the normalization parameters according to LeCun (1998)
-    MU = 0.1/1.275
-    STD = 1/1.275
+    # MNIST statistics
+    MU = 0.1307
+    STD = 0.3081
+
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(mean=MU, std=STD),
