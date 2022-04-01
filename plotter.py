@@ -42,6 +42,7 @@ def figure1(PM_LIST, VALIDATION_ITERATIONS, accuracies_array, losses_array, prun
                                     average_es, average_es-np.min(np.take(accuracies_array, np.argmin(losses_array, axis=2)), 1)))
     return prune_rates, average_es, errors_es, accuracies_es, errors_accuracy_es
 
+
 if __name__ == "__main__":
     # Load data
     f = open('data.json')
@@ -49,24 +50,24 @@ if __name__ == "__main__":
     PM_LIST = data['PM_LIST']
     VALIDATION_ITERATIONS = np.array(data['VALIDATION_ITERATIONS'])
     PRUNE_RATE = data['PRUNE_RATE']
-    accuracies_array = np.array(data['accuracies'])
-    losses_array = np.array(data['losses'])
+    accuracies_array = np.array(data['test_accuracies'])
+    losses_array = np.array(data['val_losses'])
 
     f = open('data_random.json')
     data = json.load(f)
     PM_LIST_random = data['PM_LIST']
     VALIDATION_ITERATIONS_random = np.array(data['VALIDATION_ITERATIONS'])
     PRUNE_RATE_random = data['PRUNE_RATE']
-    accuracies_array_random = np.array(data['accuracies'])
-    losses_array_random = np.array(data['losses'])
+    accuracies_array_random = np.array(data['test_accuracies'])
+    losses_array_random = np.array(data['val_losses'])
 
     f = open('data_reinit.json')
     data = json.load(f)
     PM_LIST_reinit = data['PM_LIST']
     VALIDATION_ITERATIONS_reinit = np.array(data['VALIDATION_ITERATIONS'])
     PRUNE_RATE_reinit = data['PRUNE_RATE']
-    accuracies_array_reinit = np.array(data['accuracies'])
-    losses_array_reinit = np.array(data['losses'])
+    accuracies_array_reinit = np.array(data['test_accuracies'])
+    losses_array_reinit = np.array(data['val_losses'])
 
 
     prune_rates, average_es, errors_es, accuracies_es, errors_accuracy_es = figure1(
