@@ -26,19 +26,45 @@ def plot_dict(plot_data: Dict[str, Any],
                             yerr=errors, label=label, color=color)
 
 
+def validate_model(data_loader: torch.utils.data.DataLoader,
+                   model: nn.Module,
+                   use_cuda: bool,
+                   criterion: nn.Module,) -> Tuple[float, float]:
+    num_hits = 0.
+    running_loss = 0.
+    dataset_count = 0
+    for batch_input, batch_target in data_loader:
+        dataset_count += batch_input.shape[0]
+        if use_cuda:
+            batch_input = batch_input.cuda()
+            batch_target = batch_target.cuda()
+        with torch.no_grad():
+            batch_output_prob = model(batch_input)
+            batch_output = torch.argmax(batch_output_prob, dim=1)
+            num_hits += (batch_output == batch_target).sum().float().item()
+            loss = criterion(batch_output_prob, batch_target)
+        running_loss += loss.item() * batch_input.size(0)
+    accuracy = num_hits / dataset_count
+    loss = running_loss / dataset_count
+    return accuracy, loss
+
+
 def train_model(train_data_loader: torch.utils.data.DataLoader,
                 test_data_loader: torch.utils.data.DataLoader,
+                val_data_loader: torch.utils.data.DataLoader,
                 USE_CUDA: bool,
                 model: nn.Module,
                 criterion: nn.Module,
                 optimizer: torch.optim.Optimizer,
                 validate_at: np.ndarray,
-                ) -> Tuple[np.ndarray, np.ndarray]:
+                ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     iterations_so_far = 0
     iter_train_data_loader = iter(train_data_loader)
     total_iterations = max(validate_at)
-    accuracies = []
-    losses = []
+    test_accuracies = []
+    test_losses = []
+    val_accuracies = []
+    val_losses = []
     progress_bar = tqdm.tqdm(total=total_iterations)
     while iterations_so_far < total_iterations:
         try:
@@ -61,28 +87,18 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
         if iterations_so_far in validate_at:
             # Find accuracy and loss
             model.eval()
-            running_loss = 0.
-            num_hits = 0.
-            for test_batch_input, test_batch_target in test_data_loader:
-                if USE_CUDA:
-                    test_batch_input = test_batch_input.cuda()
-                    test_batch_target = test_batch_target.cuda()
-                with torch.no_grad():
-                    test_batch_output_prob = model(test_batch_input)
-                    test_batch_output = torch.argmax(
-                        test_batch_output_prob, dim=1)
-                    num_hits += (test_batch_output ==
-                                 test_batch_target).sum().float().item()
-                    loss = criterion(test_batch_output_prob, test_batch_target)
-                running_loss += loss.item() * test_batch_input.size(0)
-            epoch_accuracy = num_hits / len(test_dataset)
-            accuracies.append(epoch_accuracy)
-            epoch_loss = running_loss / len(test_dataset)
-            losses.append(epoch_loss)
+            test_accuracy, test_loss = validate_model(test_data_loader, model, USE_CUDA, criterion)
+            val_accuracy, val_loss = validate_model(val_data_loader, model, USE_CUDA, criterion)
+            test_accuracies.append(test_accuracy)
+            val_accuracies.append(val_accuracy)
+            test_losses.append(test_loss)
+            val_losses.append(val_loss)
     progress_bar.close()
-    accuracies = np.asarray(accuracies)
-    losses = np.asarray(losses)
-    return accuracies, losses
+    test_accuracies = np.asarray(test_accuracies)
+    test_losses = np.asarray(test_losses)
+    val_accuracies = np.asarray(val_accuracies)
+    val_losses = np.asarray(val_losses)
+    return test_accuracies, test_losses, val_accuracies, val_losses
 
 
 def prune_model_l1(model: nn.Module, prune_ratio_hidden: float, prune_ratio_output: float) -> nn.Module:
@@ -153,15 +169,20 @@ def run_iterative_pruning(
         random_init: bool,
         prune_rate: float,
         train_data_loader: torch.utils.data.DataLoader,
+        val_data_loader: torch.utils.data.DataLoader,
         test_data_loader: torch.utils.data.DataLoader,
         validation_iterations: np.ndarray,
         l1: bool,
         pm_list: List[int],
         file_name: str,
 ):
-    accuracies_array = np.zeros(
+    test_accuracies_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
-    losses_array = np.zeros(
+    test_losses_array = np.zeros(
+        (num_prunings+1, num_executions, validation_iterations.shape[0]))
+    val_accuracies_array = np.zeros(
+        (num_prunings+1, num_executions, validation_iterations.shape[0]))
+    val_losses_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
     for i in range(num_executions):
         print(f"---ITERATION: {i + 1}, RANDOM_INIT={random_init}---")
@@ -178,27 +199,32 @@ def run_iterative_pruning(
         for pm in range(num_prunings+1):
             print(f"Training at params ratio: {(1 - PRUNE_RATE) ** pm:.3f}, "
                   f"active parameters: {sum(model.layers[2 * w].weight.count_nonzero().item() for w in range(3))}")
-            accuracies, losses = train_model(train_data_loader, test_data_loader, USE_CUDA, model, criterion, optimizer,
-                                             validation_iterations)
+            test_accuracies, test_losses, val_accuracies, val_losses = \
+                train_model(train_data_loader, val_data_loader, test_data_loader, USE_CUDA, model, criterion, optimizer, validation_iterations)
             if l1:
                 model = prune_model_l1(
                     model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
             else:
                 model = prune_model_rnd(
                     model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
+
             if not random_init:
                 model = load_original_weights(
                     model=model, model_original=model_original)
             else:
                 model = random_reinit(model)
-            accuracies_array[pm, i, :] = accuracies
-            losses_array[pm, i, :] = losses
+            test_accuracies_array[pm, i, :] = test_accuracies
+            test_losses_array[pm, i, :] = test_losses
+            val_accuracies_array[pm, i, :] = val_accuracies
+            val_losses_array[pm, i, :] = val_losses
 
             export_dict = {"VALIDATION_ITERATIONS": VALIDATION_ITERATIONS.tolist(),
                            "PM_LIST": pm_list,
                            "PRUNE_RATE": prune_rate,
-                           "accuracies": accuracies_array.tolist(),
-                           "losses": losses_array.tolist()
+                           "test_accuracies": test_accuracies_array.tolist(),
+                           "test_losses": test_losses_array.tolist(),
+                           "val_accuracies": val_accuracies_array.tolist(),
+                           "val_losses": val_losses_array.tolist(),
                            }
             with open(f"{file_name}.json", 'w') as file:
                 json.dump(export_dict, file)
@@ -253,28 +279,34 @@ if __name__ == "__main__":
                           random_init=False,
                           prune_rate=PRUNE_RATE,
                           train_data_loader=train_data_loader,
+                          val_data_loader=val_data_loader,
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=True,
                           pm_list=PM_LIST,
-                          file_name='data')
+                          file_name='data',
+                          )
     run_iterative_pruning(num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS,
                           random_init=True,
                           prune_rate=PRUNE_RATE,
                           train_data_loader=train_data_loader,
+                          val_data_loader=val_data_loader,
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=False,
                           pm_list=PM_LIST,
-                          file_name='data_reinit')
+                          file_name='data_reinit',
+                          )
     run_iterative_pruning(num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS_REINIT,
                           random_init=True,
                           prune_rate=PRUNE_RATE,
                           train_data_loader=train_data_loader,
+                          val_data_loader=val_data_loader,
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=True,
                           pm_list=PM_LIST_REINIT,
-                          file_name='data_random')
+                          file_name='data_random',
+                          )
