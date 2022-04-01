@@ -1,6 +1,7 @@
+import argparse
+import json
 from typing import List, Dict, Any, Tuple
 import copy
-import json
 import matplotlib
 import torch
 import torch.nn as nn
@@ -156,7 +157,7 @@ def run_iterative_pruning(
         validation_iterations: np.ndarray,
         l1: bool,
         pm_list: List[int],
-        file_name: str
+        file_name: str,
 ):
     accuracies_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
@@ -205,7 +206,12 @@ def run_iterative_pruning(
 
 if __name__ == "__main__":
 
-    USE_CACHED = False
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", choices=["mnist", "fashion_mnist"])
+    parser.add_argument("--use-cached", action="store_true", default=False)
+    args = parser.parse_args()
+
+    USE_CACHED = args.use_cached
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
     VALIDATION_ITERATIONS = np.arange(100, 50001, 100, dtype=int)
@@ -221,22 +227,23 @@ if __name__ == "__main__":
 
     USE_CUDA = torch.cuda.is_available()
     # MNIST statistics
-    MU = 0.1307
-    STD = 0.3081
+    MU = 0.1307 if args.dataset == "mnist" else 0.286
+    STD = 0.3081 if args.dataset == "mnist" else 0.353
 
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(mean=MU, std=STD),
         torchvision.transforms.Lambda(lambda tensor: tensor.reshape(-1)),
     ])
-    train_dataset, val_dataset = torch.utils.data.random_split(torchvision.datasets.MNIST(
+    create_dataset = torchvision.datasets.MNIST if args.dataset == "mnist" else torchvision.datasets.FashionMNIST
+    train_dataset, val_dataset = torch.utils.data.random_split(create_dataset(
         root="./.mnist", transform=transform, download=True, train=True), (55000, 5000))
     train_data_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_data_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    test_dataset = torchvision.datasets.MNIST(
+    test_dataset = create_dataset(
         root="./.mnist", transform=transform, download=True, train=False)
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=BATCH_SIZE, shuffle=False)
