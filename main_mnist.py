@@ -4,6 +4,7 @@ from os import path
 from typing import List, Dict, Any, Tuple
 import copy
 import json
+from isort import file
 import matplotlib
 from matplotlib.pyplot import plot
 import torch
@@ -161,7 +162,8 @@ def run_iterative_pruning(
         test_data_loader: torch.utils.data.DataLoader,
         validation_iterations: np.ndarray,
         l1: bool,
-        pm_list: List[int]
+        pm_list: List[int],
+        file_name: str
 ) -> np.ndarray:
     accuracies_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
@@ -214,7 +216,7 @@ if __name__ == "__main__":
     USE_CACHED = False
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
-    VALIDATION_ITERATIONS = np.arange(200, 50001, 200, dtype=int)
+    VALIDATION_ITERATIONS = np.arange(100, 50001, 100, dtype=int)
 
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
     PM_LIST = [0, 3, 7, 12, 15, 18]
@@ -254,16 +256,18 @@ if __name__ == "__main__":
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=True,
-                          pm_list=PM_LIST)
+                          pm_list=PM_LIST,
+                          file_name='data')
     run_iterative_pruning(num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS,
-                          random_init=False,
+                          random_init=True,
                           prune_rate=PRUNE_RATE,
                           train_data_loader=train_data_loader,
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=False,
-                          pm_list=PM_LIST)
+                          pm_list=PM_LIST,
+                          file_name='data_reinit')
     run_iterative_pruning(num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS_REINIT,
                           random_init=True,
@@ -272,4 +276,5 @@ if __name__ == "__main__":
                           test_data_loader=test_data_loader,
                           validation_iterations=VALIDATION_ITERATIONS,
                           l1=True,
-                          pm_list=PM_LIST_REINIT)
+                          pm_list=PM_LIST_REINIT,
+                          file_name='data_random')
