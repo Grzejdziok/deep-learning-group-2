@@ -206,7 +206,7 @@ def run_iterative_pruning(
                            "accuracies": accuracies_array.tolist(),
                            "losses": losses_array.tolist()
                            }
-            with open(f"data{'_reinit' if random_init else ''}{'_random' if not l1 else ''}.json", 'w') as file:
+            with open(f"{file_name}.json", 'w') as file:
                 json.dump(export_dict, file)
     return
 
