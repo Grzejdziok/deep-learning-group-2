@@ -16,7 +16,7 @@ def plot_dict(plot_data: Dict[str, Any],
                 errors = np.vstack((np.amax(plot_data[label]['accuracy'], axis=0)-average, -np.amin(
                     plot_data[label]['accuracy'], axis=0)+average))
                 ax.errorbar(validation_iterations, average,
-                            yerr=errors, label=label, color=color)
+                            yerr=errors, label=label, color=color, errorevery=10, capsize=2)
 
 
 def figure1(PM_LIST, VALIDATION_ITERATIONS, accuracies_array, losses_array, prune_rate):
@@ -125,7 +125,9 @@ if __name__ == "__main__":
     labels = []
     for ax in fig.axes:
         ax.set_xlim(0, 17500)
+        ax.set_xlabel("Training Iterations")
         ax.set_ylim(0.94, 0.99)
+        ax.set_ylabel("Test Accuracy")
         ax.set_xticks([0, 5000, 10000, 15000])
         ax.grid()
         axLine, axLabel = ax.get_legend_handles_labels()
