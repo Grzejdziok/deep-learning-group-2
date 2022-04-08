@@ -21,13 +21,13 @@ def plot_dict(plot_data: Dict[str, Any],
 
 def figure1(PM_LIST, VALIDATION_ITERATIONS, accuracies_array, losses_array, prune_rate):
     prune_rates = (1 - prune_rate) ** np.arange(0, max(PM_LIST)+1)*100
-    es_index = np.argmin(np.mean(losses_array, 1), axis=1)
-    average_es = VALIDATION_ITERATIONS[es_index]
-    errors_es = np.vstack((VALIDATION_ITERATIONS[np.min(np.argmin(losses_array, axis=2), axis=1)] -
-                          average_es, average_es-VALIDATION_ITERATIONS[np.max(np.argmin(losses_array, axis=2), axis=1)]))
-    accuracies_es = np.take(np.mean(accuracies_array, 1), es_index)
-    errors_accuracy_es = np.vstack((np.max(np.take(accuracies_array, np.argmin(losses_array, axis=2)), 1) -
-                                    average_es, average_es-np.min(np.take(accuracies_array, np.argmin(losses_array, axis=2)), 1)))
+    es_index = np.argmin(losses_array, 2)
+    average_es = np.mean(VALIDATION_ITERATIONS[es_index], axis=1)
+    errors_es = np.vstack((VALIDATION_ITERATIONS[np.min(es_index, axis=1)] -
+                          average_es, average_es-VALIDATION_ITERATIONS[np.max(es_index, axis=1)]))
+    accuracies_es = np.mean(np.take(accuracies_array, es_index), 1)
+    errors_accuracy_es = np.vstack((np.max(np.take(accuracies_array, es_index), 1) -
+                                    accuracies_es, accuracies_es-np.min(np.take(accuracies_array, es_index), 1)))
     return prune_rates, average_es, errors_es, accuracies_es, errors_accuracy_es
 
 
@@ -76,6 +76,8 @@ if __name__ == "__main__":
     ax1.set_xlabel("Percent of weights remaining")
     ax1.set_ylabel("Early-Stop Iteration (Val.)")
     ax1.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
+    ax1.set_xticklabels([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
+    ax1.minorticks_off()
     ax1.grid()
 
     ax2.errorbar(prune_rates, accuracies_es,
@@ -88,6 +90,8 @@ if __name__ == "__main__":
     ax2.set_xlabel("Percent of weights remaining")
     ax2.set_ylabel("Accuracy at Early-Stop (Test)")
     ax2.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
+    ax2.set_xticklabels([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
+    ax2.minorticks_off()
     ax2.grid()
     plt.show()
 
