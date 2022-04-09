@@ -1,8 +1,7 @@
 import argparse
 import json
-from typing import List, Dict, Any, Tuple
+from typing import List, Tuple
 import copy
-import matplotlib.axes
 import torch
 import torch.nn as nn
 import tqdm
@@ -10,20 +9,6 @@ import torchvision.datasets
 import torch.nn.utils.prune as prune
 import numpy as np
 from lenet import Lenet300100
-
-
-def plot_dict(plot_data: Dict[str, Any],
-              colors: List[str],
-              validation_iterations: np.ndarray,
-              ax: matplotlib.axes.Axes):
-    for label in plot_data.keys():
-        for color in colors:
-            if plot_data[label]['color'] == color:
-                average = np.mean(plot_data[label]['accuracy'], axis=0)
-                errors = np.vstack((np.amax(plot_data[label]['accuracy'], axis=0)-average, -np.amin(
-                    plot_data[label]['accuracy'], axis=0)+average))
-                ax.errorbar(validation_iterations, average,
-                            yerr=errors, label=label, color=color)
 
 
 def validate_model(data_loader: torch.utils.data.DataLoader,
@@ -234,10 +219,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=["mnist", "fashion_mnist"])
-    parser.add_argument("--use-cached", action="store_true", default=False)
     args = parser.parse_args()
 
-    USE_CACHED = args.use_cached
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
     VALIDATION_ITERATIONS = np.arange(100, 50001, 100, dtype=int)
