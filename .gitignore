@@ -6,3 +6,7 @@ losses.npy
 accuracies.npy
 losses_random_init.npy
 
+data_random.json
+.vscode/settings.json
+cached/data_random_real.json
+cached/data_random1.json
