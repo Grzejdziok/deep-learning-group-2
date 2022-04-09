@@ -8,7 +8,6 @@ import tqdm
 import torchvision.datasets
 import torch.nn.utils.prune as prune
 import numpy as np
-from lenet import Lenet300100
 from model_factory import ModelFactory
 
 
@@ -87,31 +86,43 @@ def train_model(train_data_loader: torch.utils.data.DataLoader,
     return test_accuracies, test_losses, val_accuracies, val_losses
 
 
-def prune_model_l1(model: nn.Module, prune_ratio_hidden: float, prune_ratio_output: float) -> nn.Module:
-    if isinstance(model, Lenet300100):
-        prune.l1_unstructured(
-            model.layers[0], name="weight", amount=prune_ratio_hidden)
-        prune.l1_unstructured(
-            model.layers[2], name="weight", amount=prune_ratio_hidden)
-        # Last layer at half the rate - page 22
-        prune.l1_unstructured(
-            model.layers[4], name="weight", amount=prune_ratio_output)
-    else:
-        raise NotImplementedError()
+def count_parameters(model: nn.Module) -> int:
+    num_parameters = 0
+    for module in model.modules():
+        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+            num_parameters += module.weight.data.numel()
+            num_parameters += module.bias.data.numel()
+    return num_parameters
+
+
+def count_pruned_parameters(model: nn.Module) -> int:
+    num_pruned_parameters = 0
+    for module in model.modules():
+        if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+            if prune.is_pruned(module):
+                num_pruned_parameters += module.weight_mask.data.numel() - module.weight_mask.data.count_nonzero().item()
+    return num_pruned_parameters
+
+
+def prune_model_l1(model: nn.Module, prune_ratio_hidden_fc: float, prune_ratio_hidden_conv: float, prune_ratio_output: float) -> nn.Module:
+    assert hasattr(model, "hidden_layers") and hasattr(model, "output_layer")
+    for module in model.hidden_layers:
+        if isinstance(module, nn.Linear):
+            prune.l1_unstructured(module, name="weight", amount=prune_ratio_hidden_fc)
+        elif isinstance(module, nn.Conv2d):
+            prune.l1_unstructured(module, name="weight", amount=prune_ratio_hidden_conv)
+    prune.l1_unstructured(model.output_layer, name="weight", amount=prune_ratio_output)
     return model
 
 
-def prune_model_rnd(model: nn.Module, prune_ratio_hidden: float, prune_ratio_output: float) -> nn.Module:
-    if isinstance(model, Lenet300100):
-        prune.random_unstructured(
-            model.layers[0], name="weight", amount=prune_ratio_hidden)
-        prune.random_unstructured(
-            model.layers[2], name="weight", amount=prune_ratio_hidden)
-        # Last layer at half the rate - page 22
-        prune.random_unstructured(
-            model.layers[4], name="weight", amount=prune_ratio_output)
-    else:
-        raise NotImplementedError()
+def prune_model_rnd(model: nn.Module, prune_ratio_hidden_fc: float, prune_ratio_hidden_conv: float, prune_ratio_output: float) -> nn.Module:
+    assert hasattr(model, "hidden_layers") and hasattr(model, "output_layer")
+    for module in model.hidden_layers:
+        if isinstance(module, nn.Linear):
+            prune.random_unstructured(module, name="weight", amount=prune_ratio_hidden_fc)
+        elif isinstance(module, nn.Conv2d):
+            prune.random_unstructured(module, name="weight", amount=prune_ratio_hidden_conv)
+    prune.l1_unstructured(model.output_layer, name="weight", amount=prune_ratio_output)
     return model
 
 
@@ -154,7 +165,8 @@ def run_iterative_pruning(
         num_executions: int,
         num_prunings: int,
         random_init: bool,
-        prune_rate: float,
+        prune_rate_fc: float,
+        prune_rate_conv: float,
         train_data_loader: torch.utils.data.DataLoader,
         val_data_loader: torch.utils.data.DataLoader,
         test_data_loader: torch.utils.data.DataLoader,
@@ -171,6 +183,7 @@ def run_iterative_pruning(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
     val_losses_array = np.zeros(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
+    weights_remaining_rates = []
     for i in range(num_executions):
         print(f"---ITERATION: {i + 1}, RANDOM_INIT={random_init}---")
         model = model_factory.create()
@@ -179,25 +192,41 @@ def run_iterative_pruning(
             model.cuda()
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(
-            params=model.parameters(), lr=LEARNING_RATE)
+            params=model.parameters(), lr=learning_rate)
 
         # Save original weights at the beginning
         model_original = copy.deepcopy(model)
         for pm in range(num_prunings+1):
-            print(f"Training at params ratio: {(1 - PRUNE_RATE) ** pm:.3f}, "
-                  f"active parameters: {sum(model.layers[2 * w].weight.count_nonzero().item() for w in range(3))}")
+            pruned_parameters = count_pruned_parameters(model)
+            all_parameters = count_parameters(model)
+            active_parameters = all_parameters - pruned_parameters
+            current_prune_rate = pruned_parameters / all_parameters
+            weights_remaining_rate = 1-current_prune_rate
+            weights_remaining_rates.append(weights_remaining_rate)
+
+            print(f"Training at params ratio: {weights_remaining_rate:.3f}, active parameters: {active_parameters}/{all_parameters}")
             test_accuracies, test_losses, val_accuracies, val_losses = \
                 train_model(train_data_loader, val_data_loader, test_data_loader, USE_CUDA, model, criterion, optimizer, validation_iterations)
             if l1:
                 model = prune_model_l1(
-                    model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
+                    model=model,
+                    prune_ratio_hidden_fc=prune_rate_fc,
+                    prune_ratio_hidden_conv=prune_rate_conv,
+                    prune_ratio_output=prune_rate_fc / 2,
+                )
             else:
                 model = prune_model_rnd(
-                    model=model, prune_ratio_hidden=prune_rate, prune_ratio_output=prune_rate / 2)
+                    model=model,
+                    prune_ratio_hidden_fc=prune_rate_fc,
+                    prune_ratio_hidden_conv=prune_rate_conv,
+                    prune_ratio_output=prune_rate_fc / 2,
+                )
 
             if not random_init:
                 model = load_original_weights(
-                    model=model, model_original=model_original)
+                    model=model,
+                    model_original=model_original,
+                )
             else:
                 model = random_reinit(model)
             test_accuracies_array[pm, i, :] = test_accuracies
@@ -205,9 +234,10 @@ def run_iterative_pruning(
             val_accuracies_array[pm, i, :] = val_accuracies
             val_losses_array[pm, i, :] = val_losses
 
-            export_dict = {"VALIDATION_ITERATIONS": VALIDATION_ITERATIONS.tolist(),
+            export_dict = {"VALIDATION_ITERATIONS": validation_iterations.tolist(),
                            "PM_LIST": pm_list,
-                           "PRUNE_RATE": prune_rate,
+                           "PRUNE_RATE": prune_rate_fc,
+                           "weights_remaining_rates": weights_remaining_rates,
                            "test_accuracies": test_accuracies_array.tolist(),
                            "test_losses": test_losses_array.tolist(),
                            "val_accuracies": val_accuracies_array.tolist(),
@@ -217,85 +247,115 @@ def run_iterative_pruning(
                 json.dump(export_dict, file)
 
 
+DATASET_NORMALIZATION = {
+    "mnist": (0.1307, 0.3081),
+    "fashion_mnist": (0.286, 0.353),
+    "cifar10": ((0.491, 0.482, 0.447), (0.247, 0.243, 0.262)),
+}
+
+DATASET_FACTORY = {
+    "mnist": torchvision.datasets.MNIST,
+    "fashion_mnist": torchvision.datasets.FashionMNIST,
+    "cifar10": torchvision.datasets.CIFAR10,
+}
+
+
 if __name__ == "__main__":
+    """
+    Example commands:
+    python main.py --dataset mnist --model lenet300100 --max-iteration 50000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 1.2e-3 --prune-rate-fc 0.2 --prune-rate-conv 0.0 --val-set-size 5000
+    python main.py --dataset cifar10 --model conv2 --max-iteration 20000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 2e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.1 --val-set-size 5000
+    python main.py --dataset cifar10 --model conv4 --max-iteration 25000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 3e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.1 --val-set-size 5000
+    python main.py --dataset cifar10 --model conv6 --max-iteration 30000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 3e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.15 --val-set-size 5000
+    """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", choices=["mnist", "fashion_mnist"])
-    parser.add_argument("--model", choices=["lenet300100"])
+    parser.add_argument("--dataset", choices=["mnist", "fashion_mnist", "cifar10"], required=True)
+    parser.add_argument("--model", choices=["lenet300100", "conv2", "conv4", "conv6"], required=True)
+    parser.add_argument("--max-iteration", type=int, required=True)
+    parser.add_argument("--validate-each", type=int, required=True, default=100)
+    parser.add_argument("--num-repetitions", type=int, required=True, default=1)
+    parser.add_argument("--prune-rate-fc", type=float, required=True)
+    parser.add_argument("--prune-rate-conv", type=float, required=True)
+    parser.add_argument("--batch-size", type=int, required=True)
+    parser.add_argument("--val-set-size", type=int, default=5000, required=True)
+    parser.add_argument("--learning-rate", type=float, required=True)
     args = parser.parse_args()
 
     model_factory = ModelFactory(model_name=args.model)
 
-    BATCH_SIZE = 60
-    LEARNING_RATE = 1.2e-3
-    VALIDATION_ITERATIONS = np.arange(100, 50001, 100, dtype=int)
+    batch_size = args.batch_size
+    learning_rate = args.learning_rate
+    validation_iterations = np.arange(args.validate_each, args.max_iteration + 1, args.validate_each, dtype=int)
     # P_m's from figure 3 - these are the exponents of 0.8 to get to roughly the Pm's for figure 3
     PM_LIST = [0, 3, 7, 12, 15, 18, 28]
     PM_LIST_REINIT = [0, 3, 7]
 
-    NUM_PRUNINGS = max(PM_LIST)
-    NUM_PRUNINGS_REINIT = max(PM_LIST_REINIT)
-    NUM_EXECUTIONS = 5
-    PRUNE_RATE = 0.2
+    num_prunings = max(PM_LIST)
+    num_prunings_reinit = max(PM_LIST_REINIT)
+    num_executions = args.num_repetitions
+    prune_rate_conv = args.prune_rate_conv
+    prune_rate_fc = args.prune_rate_fc
 
     USE_CUDA = torch.cuda.is_available()
     # MNIST statistics
-    MU = 0.1307 if args.dataset == "mnist" else 0.286
-    STD = 0.3081 if args.dataset == "mnist" else 0.353
+    mean, std = DATASET_NORMALIZATION[args.dataset]
 
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize(mean=MU, std=STD),
-        torchvision.transforms.Lambda(lambda tensor: tensor.reshape(-1)),
+        torchvision.transforms.Normalize(mean=mean, std=std),
     ])
-    create_dataset = torchvision.datasets.MNIST if args.dataset == "mnist" else torchvision.datasets.FashionMNIST
-    train_dataset, val_dataset = torch.utils.data.random_split(create_dataset(
-        root="./.mnist", transform=transform, download=True, train=True), (55000, 5000))
+    dataset_factory = DATASET_FACTORY[args.dataset]
+    train_val_dataset = dataset_factory(root="./.mnist", transform=transform, download=True, train=True)
+    train_dataset, val_dataset = torch.utils.data.random_split(train_val_dataset, (len(train_val_dataset)-5000, 5000))
     train_data_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+        train_dataset, batch_size=batch_size, shuffle=True)
     val_data_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=BATCH_SIZE, shuffle=False)
+        val_dataset, batch_size=batch_size, shuffle=False)
 
-    test_dataset = create_dataset(
+    test_dataset = dataset_factory(
         root="./.mnist", transform=transform, download=True, train=False)
     test_data_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+        test_dataset, batch_size=batch_size, shuffle=False)
 
     run_iterative_pruning(model_factory=model_factory,
-                          num_executions=NUM_EXECUTIONS,
-                          num_prunings=NUM_PRUNINGS,
+                          num_executions=num_executions,
+                          num_prunings=num_prunings,
                           random_init=False,
-                          prune_rate=PRUNE_RATE,
+                          prune_rate_fc=prune_rate_fc,
+                          prune_rate_conv=prune_rate_conv,
                           train_data_loader=train_data_loader,
                           val_data_loader=val_data_loader,
                           test_data_loader=test_data_loader,
-                          validation_iterations=VALIDATION_ITERATIONS,
+                          validation_iterations=validation_iterations,
                           l1=True,
                           pm_list=PM_LIST,
                           file_name='data',
                           )
     run_iterative_pruning(model_factory=model_factory,
-                          num_executions=NUM_EXECUTIONS,
-                          num_prunings=NUM_PRUNINGS,
+                          num_executions=num_executions,
+                          num_prunings=num_prunings,
                           random_init=True,
-                          prune_rate=PRUNE_RATE,
+                          prune_rate_fc=prune_rate_fc,
+                          prune_rate_conv=prune_rate_conv,
                           train_data_loader=train_data_loader,
                           val_data_loader=val_data_loader,
                           test_data_loader=test_data_loader,
-                          validation_iterations=VALIDATION_ITERATIONS,
+                          validation_iterations=validation_iterations,
                           l1=False,
                           pm_list=PM_LIST,
                           file_name='data_reinit',
                           )
     run_iterative_pruning(model_factory=model_factory,
-                          num_executions=NUM_EXECUTIONS,
-                          num_prunings=NUM_PRUNINGS_REINIT,
+                          num_executions=num_executions,
+                          num_prunings=num_prunings_reinit,
                           random_init=True,
-                          prune_rate=PRUNE_RATE,
+                          prune_rate_fc=prune_rate_fc,
+                          prune_rate_conv=prune_rate_conv,
                           train_data_loader=train_data_loader,
                           val_data_loader=val_data_loader,
                           test_data_loader=test_data_loader,
-                          validation_iterations=VALIDATION_ITERATIONS,
+                          validation_iterations=validation_iterations,
                           l1=True,
                           pm_list=PM_LIST_REINIT,
                           file_name='data_random',
