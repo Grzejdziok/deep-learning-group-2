@@ -9,6 +9,7 @@ import torchvision.datasets
 import torch.nn.utils.prune as prune
 import numpy as np
 from lenet import Lenet300100
+from model_factory import ModelFactory
 
 
 def validate_model(data_loader: torch.utils.data.DataLoader,
@@ -149,6 +150,7 @@ def random_reinit(model: nn.Module) -> nn.Module:
 
 
 def run_iterative_pruning(
+        model_factory: ModelFactory,
         num_executions: int,
         num_prunings: int,
         random_init: bool,
@@ -171,7 +173,7 @@ def run_iterative_pruning(
         (num_prunings+1, num_executions, validation_iterations.shape[0]))
     for i in range(num_executions):
         print(f"---ITERATION: {i + 1}, RANDOM_INIT={random_init}---")
-        model = Lenet300100()
+        model = model_factory.create()
         model = random_reinit(model)
         if USE_CUDA:
             model.cuda()
@@ -219,7 +221,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=["mnist", "fashion_mnist"])
+    parser.add_argument("--model", choices=["lenet300100"])
     args = parser.parse_args()
+
+    model_factory = ModelFactory(model_name=args.model)
 
     BATCH_SIZE = 60
     LEARNING_RATE = 1.2e-3
@@ -256,7 +261,8 @@ if __name__ == "__main__":
     test_data_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+    run_iterative_pruning(model_factory=model_factory,
+                          num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS,
                           random_init=False,
                           prune_rate=PRUNE_RATE,
@@ -268,7 +274,8 @@ if __name__ == "__main__":
                           pm_list=PM_LIST,
                           file_name='data',
                           )
-    run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+    run_iterative_pruning(model_factory=model_factory,
+                          num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS,
                           random_init=True,
                           prune_rate=PRUNE_RATE,
@@ -280,7 +287,8 @@ if __name__ == "__main__":
                           pm_list=PM_LIST,
                           file_name='data_reinit',
                           )
-    run_iterative_pruning(num_executions=NUM_EXECUTIONS,
+    run_iterative_pruning(model_factory=model_factory,
+                          num_executions=NUM_EXECUTIONS,
                           num_prunings=NUM_PRUNINGS_REINIT,
                           random_init=True,
                           prune_rate=PRUNE_RATE,
