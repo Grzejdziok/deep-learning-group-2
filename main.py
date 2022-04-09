@@ -344,7 +344,7 @@ if __name__ == "__main__":
                           validation_iterations=validation_iterations,
                           l1=False,
                           pm_list=PM_LIST,
-                          file_name='data_reinit',
+                          file_name='data_random',
                           )
     run_iterative_pruning(model_factory=model_factory,
                           num_executions=num_executions,
@@ -358,5 +358,5 @@ if __name__ == "__main__":
                           validation_iterations=validation_iterations,
                           l1=True,
                           pm_list=PM_LIST_REINIT,
-                          file_name='data_random',
+                          file_name='data_reinit',
                           )
