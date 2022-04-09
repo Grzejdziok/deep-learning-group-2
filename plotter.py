@@ -63,7 +63,6 @@ if __name__ == "__main__":
     prune_rates_random, average_es_random, errors_es_random, accuracies_es_random, errors_accuracy_es_random = figure1(
         PM_LIST_random, VALIDATION_ITERATIONS_random, accuracies_array_random, losses_array_random, PRUNE_RATE_random)
 
-
     fig, ((ax1, ax2)) = plt.subplots(
         nrows=1, ncols=2, sharex=False, sharey=False)
     ax1.errorbar(prune_rates, average_es, yerr=errors_es,
@@ -86,7 +85,7 @@ if __name__ == "__main__":
                 yerr=errors_accuracy_es_random, color='red', label='random', ls='--')
     ax2.set_xscale('log')
     ax2.set_xlim(130, 0.1)
-    ax2.set_ylim(0.9, 1)
+    ax2.set_ylim(0.85, 1)
     ax2.set_xlabel("Percent of weights remaining")
     ax2.set_ylabel("Accuracy at Early-Stop (Test)")
     ax2.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
