@@ -25,10 +25,12 @@ def figure1(PM_LIST, VALIDATION_ITERATIONS, accuracies_array, losses_array, prun
     average_es = np.mean(VALIDATION_ITERATIONS[es_index], axis=1)
     errors_es = np.vstack((VALIDATION_ITERATIONS[np.min(es_index, axis=1)] -
                           average_es, average_es-VALIDATION_ITERATIONS[np.max(es_index, axis=1)]))
-    accuracies_es = np.mean(np.take(accuracies_array, es_index), 1)
-    errors_accuracy_es = np.vstack((np.max(np.take(accuracies_array, es_index), 1) -
-                                    accuracies_es, accuracies_es-np.min(np.take(accuracies_array, es_index), 1)))
-    return prune_rates, average_es, errors_es, accuracies_es, errors_accuracy_es
+    accuracies_es = np.squeeze(np.take_along_axis(accuracies_array, np.expand_dims(es_index, 2), axis=2))
+    mean_accuracies_es = np.mean(accuracies_es, 1)
+    max_accuracies_es = np.max(accuracies_es, 1)
+    min_accuracies_es = np.min(accuracies_es, 1)
+    errors_accuracy_es = np.vstack((max_accuracies_es - mean_accuracies_es, mean_accuracies_es-min_accuracies_es))
+    return prune_rates, average_es, errors_es, mean_accuracies_es, errors_accuracy_es
 
 
 if __name__ == "__main__":
