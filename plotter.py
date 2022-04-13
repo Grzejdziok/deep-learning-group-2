@@ -25,7 +25,7 @@ def figure1(PM_LIST, VALIDATION_ITERATIONS, accuracies_array, losses_array, prun
     average_es = np.mean(VALIDATION_ITERATIONS[es_index], axis=1)
     errors_es = np.vstack((VALIDATION_ITERATIONS[np.min(es_index, axis=1)] -
                           average_es, average_es-VALIDATION_ITERATIONS[np.max(es_index, axis=1)]))
-    accuracies_es = np.squeeze(np.take_along_axis(accuracies_array, np.expand_dims(es_index, 2), axis=2))
+    accuracies_es = np.squeeze(np.take_along_axis(accuracies_array, np.expand_dims(es_index, 2), axis=2), axis=2)
     mean_accuracies_es = np.mean(accuracies_es, 1)
     max_accuracies_es = np.max(accuracies_es, 1)
     min_accuracies_es = np.min(accuracies_es, 1)
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     data = json.load(f)
     PM_LIST = data['PM_LIST']
     VALIDATION_ITERATIONS = np.array(data['VALIDATION_ITERATIONS'])
-    PRUNE_RATE = data['PRUNE_RATE']
+    PRUNE_RATE = data['PRUNE_RATE'] if isinstance(data['PRUNE_RATE'], float) else data['PRUNE_RATE'][0]
     accuracies_array = np.array(data['test_accuracies'])
     losses_array = np.array(data['val_losses'])
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     data = json.load(f)
     PM_LIST_random = data['PM_LIST']
     VALIDATION_ITERATIONS_random = np.array(data['VALIDATION_ITERATIONS'])
-    PRUNE_RATE_random = data['PRUNE_RATE']
+    PRUNE_RATE_random = data['PRUNE_RATE'] if isinstance(data['PRUNE_RATE'], float) else data['PRUNE_RATE'][0]
     accuracies_array_random = np.array(data['test_accuracies'])
     losses_array_random = np.array(data['val_losses'])
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     data = json.load(f)
     PM_LIST_reinit = data['PM_LIST']
     VALIDATION_ITERATIONS_reinit = np.array(data['VALIDATION_ITERATIONS'])
-    PRUNE_RATE_reinit = data['PRUNE_RATE']
+    PRUNE_RATE_reinit = data['PRUNE_RATE'] if isinstance(data['PRUNE_RATE'], float) else data['PRUNE_RATE'][0]
     accuracies_array_reinit = np.array(data['test_accuracies'])
     losses_array_reinit = np.array(data['val_losses'])
 
