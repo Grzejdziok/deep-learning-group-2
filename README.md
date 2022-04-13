@@ -1,5 +1,5 @@
 # Reproducing *The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks*
-**Authors:** Michał Grzejdziak (5266440), Sviatoslav Voloshyn (4774361), Wei Wei (), Amos Yusuf ()
+**Authors:** Michał Grzejdziak (5266440), Sviatoslav Voloshyn (4774361), Wei Wei (5471524), Amos Yusuf (4361504)=
 ***
 
 ## 1. Introduction
@@ -116,8 +116,24 @@ For the solid line we were able to complete five iterations, as was done in the 
 
 Other minor inconsistencies of our implementation include the flattening of the dashed line on the left plot as we were only able to perform 50,000 training iterations to find the iteration of early stopping. Thus, our dashed line peaks at 50,000. Finally, our networks in general took slightly more iterations to converge to the minimum loss. The reasons are unclear, though presumably a mismatch in some hyperparameters, as reported at the beginning of this chaper, is to blame.
 ## 4. Results for Conv-2, Conv-4 and Conv-6 trained on MNIST
+### 4.1 Introduction
+The authors apply the lottery ticket hypothesis to convolutional networks on the CIFAR10 dataset. These convolutional networks increase both in complexity of the learning problem and in size of the network. The three considered architectures are named Conv-2, Conv-4, Conv-6 and they are scaled down versions (for CIFAR10 dataset)  of the VGG family [3]. The networks contain a series of modules. The modules consist of two layers of 3x3 convolutional filters followed by ReLU activation and a maxpooling layer with a stride equal to 2. For Conv-4 there are two of these modules and for Conv-6 there are three.  Similar to VGG the first module has 64 convolutions in each layer, the second 128 and the third 256. After all the modules there are two fully-connected layers of size 256 and finally an ouput layer of size 10. Please note that there was not explicitly mentioned what type of activation function was used, therefore ReLU was assumed. It is important to mention that similarly to Lenet-300-100 the necessary information for reproduction is partially contained in the main body of the paper and the remainder in the appendix, which is subtly stated as a footnote. Upon careful inspection of the appendix, one notices that the architecture described in the main body does not explicitly mention the output layer of size 10. The correct architecture can eventually be deduced after comparing both descriptions and Figure 2 of the paper.
+
+### 4.2 Reproduced Figure 5
+***
+<p align="center">
+<img src="images/figure_5_ours.png" width="810" height="223" alt="Figure 3 ours">
+</p>
+Our reproduction of Figure 5
+
+***
+Our figure 5 contains the Early-Stop Iteration(Val) and the Accuracy at Early-Stop(test). (the upper left and upper right of the figure in the paper). The blue, orange, green lines correspond to the conv2, conv4 and conv6 networks. 
+The architecture the specifications for hyperparameters are provided for Conv-2, Conv-4 and Conv-6 respectively; The Adam optimizer with learning rates of 2e-4, 3e-4 and 3e-4; Training iterations 20K, 25K and 30K with minibatches of 60 images; Pruning rates for convolutional layers 10%, 10%, 15%; Pruning rates for fully-connected layers 20%, 20%, 20%; The output layer is pruned at 10%;  Training set of 50K examples; Validation set of 5K randomly examples; Test set of 10K examples; The networks are Glorot-initialized.
+Like Lenet-300-100 a critical hyperparameter is not provided in the paper namely, the normalization parameters applied on the input images before fed to the model. Based on the ablation study done in the previous section it is likely that dataset statistics was used. The normalization for CIFAR10 used are mean equal to 0.491, 0.482 , 0.447 and std equal to 0.247, 0.243, 0.262. Also, the early stopping criterion is not stated in the paper, e.g. whether to choose the smallest loss and stop or stop after the number of when current accuracy > best accuracy happens is larger than tolerence. Besides, we only did one total execution because the training time is too long for the conv networks(10 hours for one specific network and we have conv2, conv4 and conv6). If we set the execution to 5, we need 150 hours of training and time is not enough. We thus choose one execution loop and made the plot, making it very zigzag and not as smooth as the one in the paper. These are the reasons we can think of what makes our reproduction not perfectly fit the one in the paper.
 
 ## References
 <a id="1">[1]</a> Frankle, J., &#38; Carbin, M. (2019). The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks. <i>International Conference on Learning Representations</i>. [https://openreview.net/forum?id=rJl-b3RcF7]()
 
 <a id="2">[2]</a> Lecun, Y., Bottou, L., Bengio, Y., &#38; Haffner, P. (1998). Gradient-based learning applied to document recognition. <i>Proceedings of the IEEE</i>, <i>86</i>(11), 2278–2324. [https://doi.org/10.1109/5.726791]()
+
+<a id="3">[3]</a> https://arxiv.org/abs/1409.1556
