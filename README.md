@@ -228,7 +228,7 @@ from scratch and without using any reference implementation, which demonstrates 
 The only reproducibility issue of the paper is that it lacks providing normalization parameters for all experiments and 
 our ablation study in section 3.1 showed that training is highly sensitive with respect to them. Nonetheless, we were able 
 to find values which are likely to be the ones used by the authors. The results which we achieved do not fit perfectly 
-the plots in the paper, but the differences are not significant.
+the plots in the paper, but the differences are not significant and do not change the strength of the paper's claim.
 
 
 ## 6. Distribution of the efforts
