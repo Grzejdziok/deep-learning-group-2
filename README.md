@@ -13,8 +13,8 @@ accuracy of the original network after training for at most the same number of i
 claim the authors conduct a series of experiments in which they iteratively train neural networks, prune a percent of 
 their weights and reinitialize the remaining weights. In this process, called "iterative pruning", after each iteration 
 the resulting network has smaller number of parameters. The authors compare various pruning procedures and show that the
-pruning method derived from their hypothesis which reinitializes the weights to their original values yields significantly 
-better results than the baselines which reinitialize the remaining weights randomly. The experiments are performed in 
+pruning method designed to discover the lottery tickets, which reinitializes the weights to their original values after pruning, 
+yields significantly better results than the baselines which reinitialize the remaining weights randomly. The experiments are performed in 
 four different model+dataset setups: 1) Lenet-300-100 [[2]](#2) trained on MNIST [[3]](#3), 2) simple convolutional 
 networks trained on MNIST [[3]](#3) defined by the authors [[1]](#1), 3) VGG-19 [[4]](#4) trained on CIFAR10 [[5]](#5), 
 and 4) Resnet-18 [[6]](#6) trained on CIFAR10 [[5]](#5). 
@@ -173,17 +173,17 @@ statistics.
 <p align="center">
 <img src="images/figure_3_paper.png" width="750" height="326" alt="Figure 3 paper">
 </p>
-Figure 3 from the paper
+Figure 3 from the paper.
 
 ***
 ***
 <p align="center">
 <img src="images/figure_3_ours.png" width="810" height="223" alt="Figure 3 ours">
 </p>
-Our reproduction of Figure 3
+Our reproduction of Figure 3.
 
 ***
-The figure above demonstrates our reproduction of Figure 3. The data generated for the graph was averaged over five trials with error bars capturing maximum deviations. Both test and validation accuracy was measured every 100 iterations. Validation accuracy was used as a metric for Figure 3, in accordance with the baseline paper. Error bars are shown each 1000 iterations. 
+The figure above demonstrates our full reproduction of Figure 3. The data generated for the graph was averaged over five trials with error bars capturing maximum deviations. Both test and validation accuracy was measured every 100 iterations. Validation accuracy was used as a metric for Figure 3, in accordance with the baseline paper. Error bars are shown each 1000 iterations. 
 
 The general pattern, which holds throughout [[1]](#1) is described by authors as follows:
 
@@ -198,9 +198,17 @@ The uncertainty limits are similar across the five trials. As expected, the erro
 ### 3.3. Reproducing Figure 1.
 ***
 <p align="center">
+<img src="images/figure_1_paper.png" width="750" height="261" alt="Figure 1 paper">
+</p>
+Figure 1 from the paper.
+
+***
+
+***
+<p align="center">
 <img src="images/figure_1_ours.png" width="810" height="223" alt="Figure 1 ours">
 </p>
-Our reproduction of MNIST part of Figure 1
+Our reproduction of MNIST part of Figure 1.
 
 ***
 When reproducing Figure 1, we were able to confirm the general claims made throughout the paper. On the left plot, we can see that as the network becomes increasingly more pruned, it requires more iterations to converge to the point of smallest loss. This is in line with our expectations, as smaller networks may be more volatile as they underfit a large dataset. 
