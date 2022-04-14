@@ -12,3 +12,5 @@ data_reinit.json
 data.json
 data_random_1.json
 data_random_2.json
+data_random_lenet300100_mnist_random_1_run.json
+data_random_lenet300100_mnist_random_2_runs.json
