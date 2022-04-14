@@ -10,20 +10,22 @@ of CS4240 Deep Learning course 2021/22 at TU Delft.
 The paper proposes and investigates so-called "Lottery Ticket Hypothesis" which states that *a randomly-initialized, 
 dense neural network contains a subnetwork that is initialized such that—when trained in isolation—it can match the test 
 accuracy of the original network after training for at most the same number of iterations.* [[1]](#1). To verify this 
-claim the authors conduct a series of experiments in which they iteratively train neural networks, prune a percent of their 
-smallest magnitude weights and reset the remaining weights to the initial values. In this process, after each iteration
-the resulting network has smaller number of parameters. The experiments are performed in four different model+dataset setups: 
-1) Lenet-300-100 [[2]](#2) trained on MNIST [[3]](#3), 2) simple convolutional networks trained on MNIST [[3]](#3), 
-3) VGG-19 [[4]](#4) trained on CIFAR10 [[5]](#5), and 4) Resnet-18 [[6]](#6) trained on CIFAR10 [[5]](#5). 
+claim the authors conduct a series of experiments in which they iteratively train neural networks, prune a percent of 
+their weights and reinitialize the remaining weights. In this process, called "iterative pruning", after each iteration 
+the resulting network has smaller number of parameters. The authors compare various pruning procedures and show that the
+pruning method derived from their hypothesis which reinitializes the weights to their original values yields significantly 
+better results than the baselines which reinitialize the remaining weights randomly. The experiments are performed in 
+four different model+dataset setups: 1) Lenet-300-100 [[2]](#2) trained on MNIST [[3]](#3), 2) simple convolutional 
+networks trained on MNIST [[3]](#3) defined by the authors [[1]](#1), 3) VGG-19 [[4]](#4) trained on CIFAR10 [[5]](#5), 
+and 4) Resnet-18 [[6]](#6) trained on CIFAR10 [[5]](#5). 
 
 Our work targets the replication of the first two setups. We aim to fully reproduce the results from Figure 1, Figure 3
 and Figure 5 from the paper. The original figures are shown below. Figure 1 shows that pruning with the iterative pruning
 method yields networks which train significantly faster than when random pruning with weight reinitialization is applied.
-Figure 3 shows that the test accuracy of the networks pruned and reinitialized this way does not degrade until removing 
-as much as more than 98% parameters while for the networks pruned this way but randomly reinitialized it starts degrading
-when removing just 50% parameters. Figure 5 provides a more detailed view of the Figure 1 results for Conv-2/4/6 trained 
-on MNIST.
-
+The speed of training is measured by the iteration of early stopping based on validation set. Figure 3 shows that the 
+test accuracy of the networks pruned and reinitialized this way does not degrade until removing as much as more than 98% 
+parameters while for the networks pruned this way but randomly reinitialized it starts degrading when removing just 50% 
+parameters. Figure 5 provides a more detailed view of the Figure 1 results for Conv-2/4/6 trained on CIFAR10.
 
 ***
 <p align="center">
@@ -54,6 +56,33 @@ pruning using PyTorch as a framework. In section 3. and section 4. we present th
 trained on MNIST and Conv-2/4/6 trained on MNIST.
 
 ## 2. Implementation
+
+We implemented the experimental setup from scratch using PyTorch. The implementation of the iterative pruning experiments
+is included in `main.py` which can be invoked to run a specific arguments based on provided command line arguments. Example
+commands which run experiments to replicate in our project are:
+```
+python main.py --dataset mnist --model lenet300100 --max-iteration 50000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 1.2e-3 --prune-rate-fc 0.2 --prune-rate-conv 0.0 --val-set-size 5000
+python main.py --dataset cifar10 --model conv2 --max-iteration 20000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 2e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.1 --val-set-size 5000
+python main.py --dataset cifar10 --model conv4 --max-iteration 25000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 3e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.1 --val-set-size 5000
+python main.py --dataset cifar10 --model conv6 --max-iteration 30000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 3e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.15 --val-set-size 5000    
+```
+The supported datasets are MNIST [[3]](#3) (`mnist`), Fashion-MNIST [[9]](#9) (`fashion_mnist`), and CIFAR10 [[5]](#5) (`cifar10`).
+The supported models are Lenet-300-100 [[2]](#2) (`lenet300100`) and Conv-2/4/6 (`conv2`, `conv4`, `conv6`) from the paper.
+Model architectures are defined in separate files `lenet.py`, `conv2.py`, `conv4.py` and `conv6.py`, and their creation is 
+managed by a simple factory class defined in `model_factory.py`.
+
+The script `main.py` initializes parameters and runs sequentially three variants of the trainings used in the plots in 
+the paper: 1) the lottery tickets pruning (prune the weights of the smallest magnitude and reinitialize the other weights 
+to the original values), 2) random pruning (prune random weights and reinitialize the other weights randomly), 3) magnitude 
+pruning with reinitialization (prune the weights of the smallest magnitude and reinitialize the other weights randomly).
+Each of the above corresponds to one invocation of `run_iterative_pruning` defined in `main.py` which implements iterative 
+pruning. For pruning we use high-level PyTorch functions from the module `torch.nn.utils.prune` and for weight initialization
+the functions from the module `torch.nn.init`. 
+
+The results are saved in json files named respectively `data.json`, `data_random.json`, and `data_reinit.json`. The fiels 
+contain test accuracies, validation accuracies, test losses and validation loss of the respective experiment and some 
+additional information which can be helpful in plotting. Example visualization code adjusted for the Lenet+MNIST setup 
+is given in `plotter.py`.
 
 ## 3. Results for Lenet-300-100 trained on MNIST
 
@@ -130,6 +159,16 @@ Our reproduction of Figure 5
 Our figure 5 contains the Early-Stop Iteration(Val) and the Accuracy at Early-Stop(test). This corresponds to the upper left and upper right of the figure from the paper. Important to note is that the early-stopping iteration was chosen at the lowest value of the validation loss. The blue, orange, green lines correspond to the conv2, conv4 and conv6 networks. 
 Next to the architecture, the specifications of hyperparameters are provided for Conv-2, Conv-4 and Conv-6 respectively; The Adam optimizer with learning rates of 2e-4, 3e-4 and 3e-4; Training iterations 20K, 25K and 30K with minibatches of 60 images; Pruning rates for convolutional layers 10%, 10%, 15%; Pruning rates for fully-connected layers 20%, 20%, 20%; The output layer is pruned at 10%;  Training set of 50K examples; Validation set of 5K randomly examples; Test set of 10K examples; The networks are Glorot-initialized.
 Like Lenet-300-100 a critical hyperparameter is not provided in the paper namely, the normalization parameters applied on the input images before fed to the model.  Based on the ablation study done in the previous section it is likely that dataset statistics was used. The normalization for CIFAR10 used are mean equal to 0.491, 0.482 , 0.447 and std equal to 0.247, 0.243, 0.262. Also, the early stopping criterion is not stated in the paper, e.g. whether to choose the smallest loss and stop or stop after the number of when current accuracy > best accuracy happens is larger than tolerence. Besides, we only did one total execution because the training time is too long for the conv networks(10 hours for one specific network and we have conv2, conv4 and conv6). If we set the execution to 5, we need 150 hours of training and time is not enough. We thus choose one execution loop and made the plot, making it very zigzag and not as smooth as the one in the paper. These are the reasons we can think of what makes our reproduction not perfectly fit the one in the paper. Even still our results fit within the error bounds of the original plot thus supporting the claims made in the paper.
+
+## 5. Discussion
+
+
+## 6. Distribution of the efforts
+Michał Grzejdziak and Sviatoslav Voloshyn were responsible for the experiments described in section 3. while Wei Wei and 
+Amos Yusuf were responsible for the experiments described in section 4. Code implementation was a joint effort in which
+Michał Grzejdziak and Sviatoslav Voloshyn implemented the main training loop for MNIST+Lenet and visualization code for 
+section 3 while Wei Wei and Amos Yusuf implemented the Conv-2/4/6 models, the visualization code for section 4, reviewed
+the main training loop for MNIST+Lenet and adjusted it for the experiments for Conv-2/4/6+CIFAR10.
 
 ## References
 <a id="1">[1]</a> Frankle, J., &#38; Carbin, M. (2019). The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks. <i>International Conference on Learning Representations</i>. [https://openreview.net/forum?id=rJl-b3RcF7]()
