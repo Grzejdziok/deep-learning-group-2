@@ -15,9 +15,9 @@ their weights and reinitialize the remaining weights. In this process, called "i
 the resulting network has smaller number of parameters. The authors compare various pruning procedures and show that the
 pruning method designed to discover the lottery tickets, which reinitializes the weights to their original values after pruning, 
 yields significantly better results than the baselines which reinitialize the remaining weights randomly. The experiments are performed in 
-four different model+dataset setups: 1) Lenet-300-100 [[2]](#2) trained on MNIST [[3]](#3), 2) simple convolutional 
-networks trained on MNIST [[3]](#3) defined by the authors [[1]](#1), 3) VGG-19 [[4]](#4) trained on CIFAR10 [[5]](#5), 
-and 4) Resnet-18 [[6]](#6) trained on CIFAR10 [[5]](#5). 
+four different model+dataset setups: 1) Lenet-300-100 trained on MNIST [[2]](#2), 2) simple convolutional 
+networks trained on CIFAR10 [[3]](#3) defined by the authors [[1]](#1), 3) VGG-19 [[4]](#4) trained on CIFAR10, 
+and 4) Resnet-18 [[5]](#5) trained on CIFAR10. 
 
 Our work targets the replication of the first two setups. We aim to fully reproduce the results from Figure 1, Figure 3
 and Figure 5 from the paper. The original figures are shown below. Figure 1 shows that pruning with the iterative pruning
@@ -66,7 +66,7 @@ python main.py --dataset cifar10 --model conv2 --max-iteration 20000 --validate-
 python main.py --dataset cifar10 --model conv4 --max-iteration 25000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 3e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.1 --val-set-size 5000
 python main.py --dataset cifar10 --model conv6 --max-iteration 30000 --validate-each 100 --num-repetitions 1 --batch-size 60 --learning-rate 3e-4 --prune-rate-fc 0.2 --prune-rate-conv 0.15 --val-set-size 5000    
 ```
-The supported datasets are MNIST [[3]](#3) (`mnist`), Fashion-MNIST [[9]](#9) (`fashion_mnist`), and CIFAR10 [[5]](#5) (`cifar10`).
+The supported datasets are MNIST [[2]](#2) (`mnist`), Fashion-MNIST [[6]](#6) (`fashion_mnist`), and CIFAR10 [[3]](#3) (`cifar10`).
 The supported models are Lenet-300-100 [[2]](#2) (`lenet300100`) and Conv-2/4/6 (`conv2`, `conv4`, `conv6`) from the paper.
 Model architectures are defined in separate files `lenet.py`, `conv2.py`, `conv4.py` and `conv6.py`, and their creation is 
 managed by a simple factory class defined in `model_factory.py`.
@@ -235,6 +235,12 @@ Next to the architecture, the specifications of hyperparameters are provided for
 Like Lenet-300-100 a critical hyperparameter is not provided in the paper namely, the normalization parameters applied on the input images before fed to the model.  Based on the ablation study done in the previous section it is likely that dataset statistics was used. The normalization for CIFAR10 used are mean equal to 0.491, 0.482 , 0.447 and std equal to 0.247, 0.243, 0.262. Also, the early stopping criterion is not stated in the paper, e.g. whether to choose the smallest loss and stop or stop after the number of when current accuracy > best accuracy happens is larger than tolerence. Besides, we only did one total execution because the training time is too long for the conv networks(10 hours for one specific network and we have conv2, conv4 and conv6). If we set the execution to 5, we need 150 hours of training and time is not enough. We thus choose one execution loop and made the plot, making it very zigzag and not as smooth as the one in the paper. These are the reasons we can think of what makes our reproduction not perfectly fit the one in the paper. Even still our results fit within the error bounds of the original plot thus supporting the claims made in the paper.
 
 ## 5. Discussion
+We were able to confirm the main claims of the paper in our experiments, implementing the iterative pruning experiments
+from scratch and without using any reference implementation, which demonstrates general reproducibility of the paper. 
+The only reproducibility issue of the paper is that it lacks providing normalization parameters for all experiments and 
+our ablation study in section 3.1 showed that training is highly sensitive with respect to them. Nonetheless, we were able 
+to find values which are likely to be the ones used by the authors. The results which we achieved do not fit perfectly 
+the plots in the paper, but the differences are not significant.
 
 
 ## 6. Distribution of the efforts
@@ -249,4 +255,14 @@ the main training loop for MNIST+Lenet and adjusted it for the experiments for C
 
 <a id="2">[2]</a> Lecun, Y., Bottou, L., Bengio, Y., &#38; Haffner, P. (1998). Gradient-based learning applied to document recognition. <i>Proceedings of the IEEE</i>, <i>86</i>(11), 2278–2324. [https://doi.org/10.1109/5.726791]()
 
-<a id="3">[3]</a> https://arxiv.org/abs/1409.1556
+<a id="3">[3]</a> Krizhevsky, A. (2009). Learning multiple layers of features from tiny images. [https://www.cs.toronto.edu/~kriz/cifar.html]()
+
+<a id="4">[4]</a> Zisserman, A. &#38; Simonyan, K. (2014). Very deep convolutional networks for large-scale image recognition. [https://arxiv.org/abs/1409.1556]()
+
+<a id="5">[5]</a> He, K., Zhang, X., Ren, S. &#38; Sun, J. (2016). Deep residual learning for image recognition.<i>Proceedings of the IEEE conference on computer vision and pattern recognition</i>, 770-778. [https://ieeexplore.ieee.org/document/7780459]()
+
+<a id="6">[6]</a> Xiao, H., Rasul, K. &#38; Vollgraf, R. (2017). Fashion-MNIST: a Novel Image Dataset for Benchmarking Machine Learning Algorithms. [https://arxiv.org/abs/1708.07747]()
+
+<a id="7">[7]</a> Kingma, D. P. &#38; Ba, L. J. (2015). Adam: A Method for Stochastic Optimization. <i>International Conference on Learning Representations</i>. [https://openreview.net/forum?id=8gmWwjFyLj]()
+
+<a id="8">[8]</a> Glorot, X., &#38; Bengio, Y. (2010). Understanding the difficulty of training deep feedforward neural networks. In Y. W. Teh &#38; M. Titterington (Eds.), <i>Proceedings of the Thirteenth International Conference on Artificial Intelligence and Statistics</i> (Vol. 9, pp. 249–256). PMLR. [https://proceedings.mlr.press/v9/glorot10a.html]()
