@@ -34,14 +34,10 @@ parameters. Figure 5 provides a more detailed view of the Figure 1 results for C
 Figure 1 from the paper
 
 ***
-
-***
 <p align="center">
 <img src="images/figure_3_paper.png" width="750" height="326" alt="Figure 3 paper">
 </p>
 Figure 3 from the paper
-
-***
 
 ***
 <p align="center">
@@ -120,22 +116,16 @@ the paper's plot. We present our results below.
 Figure 3 from the paper.
 
 ***
-
-***
 <p align="center">
 <img src="images/figure_3_no_norm.png" width="1000" height="250" alt="Figure 3 no norm">
 </p>
 Our reproduction of Figure 3 with no normalization, single run.
 
 ***
-
-***
 <p align="center">
 <img src="images/figure_3_naive_norm.png" width="1000" height="250" alt="Figure 3 naive norm">
 </p>
 Our reproduction of Figure 3 with naive normalization (mean=0.5, std=0.5), single run.
-
-***
 
 ***
 <p align="center">
@@ -145,7 +135,6 @@ Our reproduction of Figure 3 with Lecun normalization (mean=0.078, std=0.784), s
 
 ***
 
-***
 <p align="center">
 <img src="images/figure_3_mnist_norm.png" width="1000" height="250" alt="Figure 3 mnist norm">
 </p>
@@ -176,7 +165,7 @@ statistics.
 Figure 3 from the paper.
 
 ***
-***
+
 <p align="center">
 <img src="images/figure_3_ours.png" width="810" height="223" alt="Figure 3 ours">
 </p>
@@ -204,7 +193,6 @@ Figure 1 from the paper.
 
 ***
 
-***
 <p align="center">
 <img src="images/figure_1_ours.png" width="810" height="223" alt="Figure 1 ours">
 </p>
