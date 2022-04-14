@@ -73,9 +73,10 @@ if __name__ == "__main__":
                 yerr=errors_es_random, color='red', label='random', ls='--')
     ax1.set_xscale('log')
     ax1.set_xlim(130, 0.1)
-    ax1.set_ylim(0, np.max(VALIDATION_ITERATIONS))
+    ax1.set_ylim(0, np.max(VALIDATION_ITERATIONS)+5000)
     ax1.set_xlabel("Percent of weights remaining")
     ax1.set_ylabel("Early-Stop Iteration (Val.)")
+    ax1.set_yticks([0, 20000, 40000])
     ax1.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
     ax1.set_xticklabels([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
     ax1.minorticks_off()
@@ -87,13 +88,22 @@ if __name__ == "__main__":
                 yerr=errors_accuracy_es_random, color='red', label='random', ls='--')
     ax2.set_xscale('log')
     ax2.set_xlim(130, 0.1)
-    ax2.set_ylim(0.85, 1)
+    ax2.set_ylim(0.9, 1)
     ax2.set_xlabel("Percent of weights remaining")
     ax2.set_ylabel("Accuracy at Early-Stop (Test)")
     ax2.set_xticks([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
     ax2.set_xticklabels([100, 41.1, 16.9, 7.0, 2.9, 1.2, 0.5, 0.2])
     ax2.minorticks_off()
     ax2.grid()
+    lines = []
+    labels = []
+    for ax in fig.axes:
+        axLine, axLabel = ax.get_legend_handles_labels()
+        lines.extend(axLine)
+        labels.extend(axLabel)
+    legend = {label: line for label, line in zip(labels, lines)}
+    fig.legend(list(legend.values()), list(legend.keys()),
+            loc='upper center', frameon=False, ncol=len(labels))
     plt.show()
 
 
