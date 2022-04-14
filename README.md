@@ -99,17 +99,83 @@ Glorot-initialized [[8]](#8). In each pruning iteration, 20% parameters are prun
 parameters are pruned from the output layer.
 
 One critical hyperparameter is not provided in the paper - the normalization parameters applied on input images before
-feeding them to the model. To find the correct values, we performed an ablation study evaluating four possibilities: 1) 
-no normalization, 2) naive normalization with mean and standard deviation equal to 0.5, 3) LeCun normalization with mean
-equal to 0.078 and standard deviation equal to 0.784, used in [[2]](#2), and 4) MNIST statistics normalization with mean
-equal to 0.1307 and standard deviation equal to 0.3081. We present the results of this study in section 3.1. Based on this,
-we proceed with MNIST statistics normalization which we deem the most likely to be used by the authors. In section 3.2 and
-section 3.3 we present the results of our reproduction on Figure 3 and Figure 1.
+feeding them to the model. To find the correct values, we performed an ablation study evaluating four possibilities.
+We present the results of this study in section 3.1. Based on this, we proceed with MNIST statistics normalization which 
+we deem the most likely to be used by the authors. In section 3.2 and section 3.3 we present the results of our 
+reproduction on Figure 3 and Figure 1.
 
 ### 3.1. Ablation study: searching for the correct normalization parameters
 
-### 3.2. Reproducing Figure 3.
+We performed the experiments with 4 different sets of normalization parameters: 1) no normalization, 2) naive normalization 
+with mean and standard deviation equal to 0.5, 3) LeCun normalization with mean equal to 0.078 and standard deviation equal 
+to 0.784, used in [[2]](#2), and 4) MNIST statistics normalization with mean equal to 0.1307 and standard deviation equal 
+to 0.3081. For each setup, we performed a single-run experiment as described above reporting testing accuracy each 500 
+training iterations and plotted them the same way as in Figure 3 in the paper, and then compared the resulting plots with 
+the paper's plot. We present our results below. 
 
+***
+<p align="center">
+<img src="images/figure_3_paper.png" width="750" height="326" alt="Figure 3 paper">
+</p>
+Figure 3 from the paper.
+
+***
+
+***
+<p align="center">
+<img src="images/figure_3_no_norm.png" width="1000" height="250" alt="Figure 3 no norm">
+</p>
+Our reproduction of Figure 3 with no normalization, single run.
+
+***
+
+***
+<p align="center">
+<img src="images/figure_3_naive_norm.png" width="1000" height="250" alt="Figure 3 naive norm">
+</p>
+Our reproduction of Figure 3 with naive normalization (mean=0.5, std=0.5), single run.
+
+***
+
+***
+<p align="center">
+<img src="images/figure_3_lecun_norm.png" width="1000" height="250" alt="Figure 3 lecun norm">
+</p>
+Our reproduction of Figure 3 with Lecun normalization (mean=0.078, std=0.784), single run.
+
+***
+
+***
+<p align="center">
+<img src="images/figure_3_mnist_norm.png" width="1000" height="250" alt="Figure 3 mnist norm">
+</p>
+Our reproduction of Figure 3 with MNIST statistics normalization (mean=0.1307, std=0.3081), single run.
+
+***
+
+We can see from the figures that using no normalization yields results significantly worse than the ones reported in 
+the paper which is obvious as the curves do not even reach the accuracy of 0.9 in the first 15000 iterations for any 
+level of pruning as opposed to the original plot in which all curves reach the level of 0.97. The other three setups give
+results much closer to the paper's Figure 3 with MNIST statistics results giving the most similar curves. This can be seen
+in the fact that only with this setup, the lottery tickets pruning with 1.8% remaining weights reaches the accuracy of 0.97
+within first 5000 iterations as in the original figure. We conclude that it is most likely that the authors used MNIST
+statistics to normalize the inputs to the model and use it in our experiments in section 3.2 and 3.3. Analogously, in 
+section 4 we use CIFAR statistics to normalize the inputs to the model, without performing further ablation study.
+
+It is interesting to note, that training is very sensitive to normalization parameters, but the lottery ticket hypothesis
+claims are quite robust across different setups. In all our plots it can be seen that using random reinitialization gives
+worse results than using reinitialization to the original weights as in the lottery tickets pruning. We note however
+that the accuracy gap between the two varies across different normalization parameters and is most significant for MNIST
+statistics.
+
+### 3.2. Reproducing Figure 3.
+***
+<p align="center">
+<img src="images/figure_3_paper.png" width="750" height="326" alt="Figure 3 paper">
+</p>
+Figure 3 from the paper
+
+***
 ***
 <p align="center">
 <img src="images/figure_3_ours.png" width="810" height="223" alt="Figure 3 ours">
