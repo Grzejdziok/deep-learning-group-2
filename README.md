@@ -1,5 +1,5 @@
 # Reproducing *The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks*
-**Authors:** Michał Grzejdziak (5266440), Sviatoslav Voloshyn (), Wei Wei (), Amos Yusuf ()
+**Authors:** Michał Grzejdziak (5266440), Sviatoslav Voloshyn (4774361), Wei Wei (), Amos Yusuf ()
 ***
 
 ## 1. Introduction
@@ -101,7 +101,20 @@ In terms of accuracy profiles for individual pruning rates, the graphs do not ma
 The uncertainty limits are similar across the five trials. As expected, the error bars in all three plots become slightly smaller with increasing number of training iterations. It is important to keep in mind, that the error bars do not carry any explicit statistical information - they are not an explicit confidence interval. Therefore, it is natural that some of the points in the reproduced graph do not fall within the error bars of the original one. 
 
 ### 3.3. Reproducing Figure 1.
+***
+<p align="center">
+<img src="images/figure_1_ours.png" width="810" height="223" alt="Figure 1 ours">
+</p>
+Our reproduction of MNIST part of Figure 1
 
+***
+When reproducing Figure 1, we were able to confirm the general claims made throughout the paper. On the left plot, we can see that as the network becomes increasingly more pruned, it requires more iterations to converge to the point of smallest loss. This is in line with our expectations, as smaller networks may be more volatile as they underfit a large dataset. 
+
+On the right plot is the test accuarcy at the early stopping iteration as a function of the degree to which the network has been pruned. The solid line corresponds to the network where the smallest weights have been pruned first (L1 pruning), while the dashed line corresponds to random pruning. When the network is allowed to specialize by pruning the smallest weights first (solid line), we observed a significant boost of accuracy, which is the main contribution of the paper. 
+
+For the solid line we were able to complete five iterations, as was done in the paper. For the dashed line, we only managed to complete three iterations, while the baseline paper used ten. This has an obvious influence on the sizes of the error bars. Nevertheless, we presume that there is some other difference between our and baseline implementations, which makes the sizes of error bars so different, especially after many pruning iterations. It could be that some hyperparameters were incorrectly deduced from the baseline paper or an issue with the baseline paper itself, given the unreasonable sizes of their error bars. 
+
+Other minor inconsistencies of our implementation include the flattening of the dashed line on the left plot as we were only able to perform 50,000 training iterations to find the iteration of early stopping. Thus, our dashed line peaks at 50,000. Finally, our networks in general took slightly more iterations to converge to the minimum loss. The reasons are unclear, though presumably a mismatch in some hyperparameters, as reported at the beginning of this chaper, is to blame.
 ## 4. Results for Conv-2, Conv-4 and Conv-6 trained on MNIST
 
 ## References
