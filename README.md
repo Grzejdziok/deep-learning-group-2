@@ -1,5 +1,6 @@
 # Reproducing *The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks*
-**Authors:** Michał Grzejdziak (5266440), Sviatoslav Voloshyn (4774361), Wei Wei (5471524), Amos Yusuf (4361504)=
+**Authors:** Michał Grzejdziak (5266440), Sviatoslav Voloshyn (4774361), Wei Wei (5471524), Amos Yusuf (4361504)
+
 ***
 
 ## 1. Introduction
