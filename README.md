@@ -213,9 +213,15 @@ The authors apply the lottery ticket hypothesis to convolutional networks on the
 ### 4.2 Reproduced Figure 5
 ***
 <p align="center">
+<img src="images/figure_5_paper.png" width="750" height="509" alt="Figure 5 paper">
+</p>
+Figure 5 from the paper.
+
+***
+<p align="center">
 <img src="images/figure_5_ours.png" width="810" height="223" alt="Figure 3 ours">
 </p>
-Our reproduction of Figure 5
+Our reproduction of Figure 5.
 
 ***
 Our figure 5 contains the Early-Stop Iteration(Val) and the Accuracy at Early-Stop(test). This corresponds to the upper left and upper right of the figure from the paper. Important to note is that the early-stopping iteration was chosen at the lowest value of the validation loss. The blue, orange, green lines correspond to the conv2, conv4 and conv6 networks. 
